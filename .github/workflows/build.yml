@@ -43,6 +43,24 @@ jobs:
         run: |
           sed -i 's/@Nullable ModelFeatureRenderer\.CrumblingOverlay/ModelFeatureRenderer.CrumblingOverlay/' PipeCore-v7-buildsrc/src/main/java/com/pipecore/client/render/PipeBlockEntityRenderer.java
 
+      - name: Inspect requested V7 files
+        shell: bash
+        run: |
+          echo '===== TREE ====='
+          find PipeCore-v7-buildsrc/src/main -type f | sort
+          echo '===== PIPE BLOCK ====='
+          sed -n '1,280p' PipeCore-v7-buildsrc/src/main/java/com/pipecore/block/PipeBlock.java || true
+          echo '===== PIPE CORE ====='
+          sed -n '1,320p' PipeCore-v7-buildsrc/src/main/java/com/pipecore/PipeCore.java || true
+          echo '===== RENDERER ====='
+          sed -n '1,360p' PipeCore-v7-buildsrc/src/main/java/com/pipecore/client/render/PipeBlockEntityRenderer.java || true
+          echo '===== RECIPES ====='
+          for f in PipeCore-v7-buildsrc/src/main/resources/data/pipecore/recipe/*upgrade_card.json; do echo "--- $f"; cat "$f"; done
+          echo '===== CONFIGURATOR MODEL ====='
+          for f in PipeCore-v7-buildsrc/src/main/resources/assets/pipecore/items/configurator.json PipeCore-v7-buildsrc/src/main/resources/assets/pipecore/models/item/configurator.json; do echo "--- $f"; cat "$f" 2>/dev/null || true; done
+          echo '===== PIPE MODELS/BLOCKSTATES ====='
+          for f in PipeCore-v7-buildsrc/src/main/resources/assets/pipecore/models/block/*pipe*.json PipeCore-v7-buildsrc/src/main/resources/assets/pipecore/blockstates/*pipe*.json; do echo "--- $f"; cat "$f" 2>/dev/null || true; done
+
       - name: Set up Java 25
         uses: actions/setup-java@v5
         with:
