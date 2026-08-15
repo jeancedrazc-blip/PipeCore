@@ -38,28 +38,18 @@ jobs:
           tar -xJf pipecore-src.tar.xz
           test -f PipeCore-v7-buildsrc/build.gradle
 
-      - name: Patch 26.1 renderer annotation
+      - name: Apply Pipe Core V7 fixes
         shell: bash
         run: |
+          base64 -d ci/v7_patch.py.gz.b64 | gzip -dc > /tmp/v7_patch.py
+          python3 /tmp/v7_patch.py PipeCore-v7-buildsrc
           sed -i 's/@Nullable ModelFeatureRenderer\.CrumblingOverlay/ModelFeatureRenderer.CrumblingOverlay/' PipeCore-v7-buildsrc/src/main/java/com/pipecore/client/render/PipeBlockEntityRenderer.java
-
-      - name: Inspect requested V7 files
-        shell: bash
-        run: |
-          echo '===== TREE ====='
-          find PipeCore-v7-buildsrc/src/main -type f | sort
-          echo '===== PIPE BLOCK ====='
-          sed -n '1,280p' PipeCore-v7-buildsrc/src/main/java/com/pipecore/block/PipeBlock.java || true
-          echo '===== PIPE CORE ====='
-          sed -n '1,320p' PipeCore-v7-buildsrc/src/main/java/com/pipecore/PipeCore.java || true
-          echo '===== RENDERER ====='
-          sed -n '1,360p' PipeCore-v7-buildsrc/src/main/java/com/pipecore/client/render/PipeBlockEntityRenderer.java || true
-          echo '===== RECIPES ====='
-          for f in PipeCore-v7-buildsrc/src/main/resources/data/pipecore/recipe/*upgrade_card.json; do echo "--- $f"; cat "$f"; done
-          echo '===== CONFIGURATOR MODEL ====='
-          for f in PipeCore-v7-buildsrc/src/main/resources/assets/pipecore/items/configurator.json PipeCore-v7-buildsrc/src/main/resources/assets/pipecore/models/item/configurator.json; do echo "--- $f"; cat "$f" 2>/dev/null || true; done
-          echo '===== PIPE MODELS/BLOCKSTATES ====='
-          for f in PipeCore-v7-buildsrc/src/main/resources/assets/pipecore/models/block/*pipe*.json PipeCore-v7-buildsrc/src/main/resources/assets/pipecore/blockstates/*pipe*.json; do echo "--- $f"; cat "$f" 2>/dev/null || true; done
+          grep -q '^mod_version=1.3.4$' PipeCore-v7-buildsrc/gradle.properties
+          grep -q 'pipecore:basic_upgrade_card' PipeCore-v7-buildsrc/src/main/resources/data/pipecore/recipe/improved_upgrade_card.json
+          grep -q 'pipecore:improved_upgrade_card' PipeCore-v7-buildsrc/src/main/resources/data/pipecore/recipe/advanced_upgrade_card.json
+          grep -q 'pipecore:advanced_upgrade_card' PipeCore-v7-buildsrc/src/main/resources/data/pipecore/recipe/ultimate_upgrade_card.json
+          test -f PipeCore-v7-buildsrc/src/main/resources/assets/pipecore/models/block/item_pipe_arm_up.json
+          test -s PipeCore-v7-buildsrc/src/main/resources/assets/pipecore/textures/item/configurator.png
 
       - name: Set up Java 25
         uses: actions/setup-java@v5
@@ -76,27 +66,30 @@ jobs:
         working-directory: PipeCore-v7-buildsrc
         run: gradle clean build --no-daemon --stacktrace
 
-      - name: Stage test JAR
+      - name: Stage V7 JAR
         shell: bash
         run: |
-          cp PipeCore-v7-buildsrc/build/libs/pipecore-1.3.3.jar PipeCore-1.3.3-NeoForge-26.1.2.jar
-          test -s PipeCore-1.3.3-NeoForge-26.1.2.jar
-          sha256sum PipeCore-1.3.3-NeoForge-26.1.2.jar
+          cp PipeCore-v7-buildsrc/build/libs/pipecore-1.3.4.jar PipeCore-1.3.4-NeoForge-26.1.2.jar
+          test -s PipeCore-1.3.4-NeoForge-26.1.2.jar
+          jar tf PipeCore-1.3.4-NeoForge-26.1.2.jar | grep -q 'data/pipecore/recipe/improved_upgrade_card.json'
+          jar tf PipeCore-1.3.4-NeoForge-26.1.2.jar | grep -q 'assets/pipecore/textures/item/configurator.png'
+          jar tf PipeCore-1.3.4-NeoForge-26.1.2.jar | grep -q 'assets/pipecore/models/block/item_pipe_arm_up.json'
+          sha256sum PipeCore-1.3.4-NeoForge-26.1.2.jar
 
       - name: Upload JAR artifact
         uses: actions/upload-artifact@v4
         with:
-          name: PipeCore-1.3.3-NeoForge-26.1.2
-          path: PipeCore-1.3.3-NeoForge-26.1.2.jar
+          name: PipeCore-1.3.4-NeoForge-26.1.2
+          path: PipeCore-1.3.4-NeoForge-26.1.2.jar
 
-      - name: Publish test JAR to repository
+      - name: Publish V7 JAR to repository
         shell: bash
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -f PipeCore-1.3.3-NeoForge-26.1.2.jar
+          git add -f PipeCore-1.3.4-NeoForge-26.1.2.jar
           if git diff --cached --quiet; then
             exit 0
           fi
-          git commit -m "Build Pipe Core 1.3.3"
+          git commit -m "Build Pipe Core 1.3.4 V7"
           git push
