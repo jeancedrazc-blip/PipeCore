@@ -26,7 +26,13 @@ jobs:
       - name: Rebuild source archive
         shell: bash
         run: |
-          cat ci/source.bin.* > /tmp/PipeCore-26.1.2-v6-source.zip
+          cat \
+            ci/source.bin.00 ci/source.bin.01 ci/source.bin.02 ci/source.bin.03 ci/source.bin.04 ci/source.bin.05 ci/source.bin.06 \
+            ci/source.fix.07 \
+            ci/source.bin.08 ci/source.bin.09 ci/source.bin.10 ci/source.bin.11 ci/source.bin.12 ci/source.bin.13 ci/source.bin.14 ci/source.bin.15 ci/source.bin.16 ci/source.bin.17 ci/source.bin.18 ci/source.bin.19 \
+            ci/source.fix.20 \
+            ci/source.bin.21 ci/source.bin.22 ci/source.bin.23 ci/source.bin.24 ci/source.bin.25 ci/source.bin.26 ci/source.bin.27 ci/source.bin.28 ci/source.bin.29 ci/source.bin.30 \
+            > /tmp/PipeCore-26.1.2-v6-source.zip
           echo 'f070afbbf4c1733394d7dfb732b69b2ec1e953fe797604a6988c409351e28ec6  /tmp/PipeCore-26.1.2-v6-source.zip' | sha256sum -c -
           mkdir -p work
           unzip -q /tmp/PipeCore-26.1.2-v6-source.zip -d work
