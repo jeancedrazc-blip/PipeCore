@@ -33,7 +33,7 @@ jobs:
           Path('pipecore-src.tar.xz').write_bytes(decoded)
           print(f'Reconstructed {len(decoded)} bytes from {len(parts)} chunks')
           PY
-          echo '514feb91a45aeb16c604ef07cf857d8cf4d8864e055d0a3a859c1c5627d89f07  pipecore-src.tar.xz' | sha256sum -c -
+          echo 'e8ada27e80120f37cf6f55fcd42115d6fb9870ad7817f08eca5964f56528a32c  pipecore-src.tar.xz' | sha256sum -c -
           xz -t pipecore-src.tar.xz
           tar -xJf pipecore-src.tar.xz
           test -f PipeCore-v7-buildsrc/build.gradle
@@ -56,24 +56,24 @@ jobs:
       - name: Stage test JAR
         shell: bash
         run: |
-          cp PipeCore-v7-buildsrc/build/libs/pipecore-1.3.2.jar PipeCore-1.3.2-NeoForge-26.1.2.jar
-          test -s PipeCore-1.3.2-NeoForge-26.1.2.jar
-          sha256sum PipeCore-1.3.2-NeoForge-26.1.2.jar
+          cp PipeCore-v7-buildsrc/build/libs/pipecore-1.3.3.jar PipeCore-1.3.3-NeoForge-26.1.2.jar
+          test -s PipeCore-1.3.3-NeoForge-26.1.2.jar
+          sha256sum PipeCore-1.3.3-NeoForge-26.1.2.jar
 
       - name: Upload JAR artifact
         uses: actions/upload-artifact@v4
         with:
-          name: PipeCore-1.3.2-NeoForge-26.1.2
-          path: PipeCore-1.3.2-NeoForge-26.1.2.jar
+          name: PipeCore-1.3.3-NeoForge-26.1.2
+          path: PipeCore-1.3.3-NeoForge-26.1.2.jar
 
       - name: Publish test JAR to repository
         shell: bash
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -f PipeCore-1.3.2-NeoForge-26.1.2.jar
+          git add -f PipeCore-1.3.3-NeoForge-26.1.2.jar
           if git diff --cached --quiet; then
             exit 0
           fi
-          git commit -m "Build Pipe Core 1.3.2"
+          git commit -m "Build Pipe Core 1.3.3"
           git push
