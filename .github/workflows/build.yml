@@ -72,7 +72,7 @@ jobs:
           grep -q 'FILTER_SLOT_COUNT' PipeCore-v7-buildsrc/src/main/java/com/pipecore/menu/PipeMenu.java
           grep -q 'filterBlacklist' PipeCore-v7-buildsrc/src/main/java/com/pipecore/block/PipeBlockEntity.java
           grep -q 'ROUND_ROBIN' PipeCore-v7-buildsrc/src/main/java/com/pipecore/block/PipeBlockEntity.java
-          grep -q 'drawInventorySlots' PipeCore-v7-buildsrc/src/main/java/com/pipecore/client/PipeScreen.java
+          grep -q 'ui.pipecore.filter_whitelist' PipeCore-v7-buildsrc/src/main/java/com/pipecore/client/PipeScreen.java
 
           test -s PipeCore-v7-buildsrc/src/main/resources/assets/pipecore/models/block/pipe_straight_ns_base.json
           test -s PipeCore-v7-buildsrc/src/main/resources/assets/pipecore/models/block/pipe_straight_vertical_base.json
