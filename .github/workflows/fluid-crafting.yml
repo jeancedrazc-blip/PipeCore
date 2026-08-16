@@ -1,0 +1,63 @@
+name: Build Fluid Bucket Crafting
+
+on:
+  push:
+    branches: [ 'agent/fluid-crafting-ci' ]
+    paths:
+      - '.github/workflows/fluid-crafting.yml'
+      - 'ci/fluidcrafting_build.py'
+      - 'fluid-build-trigger.txt'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout CI host
+        uses: actions/checkout@v4
+
+      - name: Set up Java 25
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - name: Set up Gradle 9.2.1
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.2.1'
+
+      - name: Clone NeoForge 26.1.2 MDK
+        run: git clone --depth 1 https://github.com/NeoForgeMDKs/MDK-26.1.2-ModDevGradle.git FluidBucketCrafting
+
+      - name: Generate isolated mod source
+        run: python3 ci/fluidcrafting_build.py FluidBucketCrafting
+
+      - name: Build mod
+        working-directory: FluidBucketCrafting
+        run: gradle clean build --no-daemon --stacktrace
+
+      - name: Stage artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp FluidBucketCrafting/build/libs/fluidbucketcrafting-1.0.0.jar FluidBucketCrafting-1.0.0-NeoForge-26.1.2.jar
+          test -s FluidBucketCrafting-1.0.0-NeoForge-26.1.2.jar
+          jar tf FluidBucketCrafting-1.0.0-NeoForge-26.1.2.jar | grep -q 'com/jeancedraz/fluidbucketcrafting/FluidBucketCrafting.class'
+          jar tf FluidBucketCrafting-1.0.0-NeoForge-26.1.2.jar | grep -q 'com/jeancedraz/fluidbucketcrafting/mixin/ResultSlotMixin.class'
+          jar tf FluidBucketCrafting-1.0.0-NeoForge-26.1.2.jar | grep -q 'fluidbucketcrafting.mixins.json'
+          rm -rf FluidBucketCrafting/.gradle FluidBucketCrafting/build FluidBucketCrafting/run FluidBucketCrafting/.git
+          zip -qr FluidBucketCrafting-1.0.0-source.zip FluidBucketCrafting
+          sha256sum FluidBucketCrafting-1.0.0-NeoForge-26.1.2.jar
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: FluidBucketCrafting-1.0.0-NeoForge-26.1.2
+          path: |
+            FluidBucketCrafting-1.0.0-NeoForge-26.1.2.jar
+            FluidBucketCrafting-1.0.0-source.zip
