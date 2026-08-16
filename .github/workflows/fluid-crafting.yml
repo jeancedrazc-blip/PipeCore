@@ -6,6 +6,7 @@ on:
     paths:
       - '.github/workflows/fluid-crafting.yml'
       - 'ci/fluidcrafting_build.py'
+      - 'ci/fluidcrafting_fix_meta.py'
       - 'fluid-build-trigger.txt'
   workflow_dispatch:
 
@@ -35,7 +36,9 @@ jobs:
         run: git clone --depth 1 https://github.com/NeoForgeMDKs/MDK-26.1.2-ModDevGradle.git FluidBucketCrafting
 
       - name: Generate isolated mod source
-        run: python3 ci/fluidcrafting_build.py FluidBucketCrafting
+        run: |
+          python3 ci/fluidcrafting_build.py FluidBucketCrafting
+          python3 ci/fluidcrafting_fix_meta.py FluidBucketCrafting
 
       - name: Build mod
         working-directory: FluidBucketCrafting
