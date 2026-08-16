@@ -24,3 +24,10 @@ if "mod_version=1.3.5" not in p:
 props.write_text(p.replace("mod_version=1.3.5", "mod_version=1.3.6", 1), encoding="utf-8")
 
 print("Applied Pipe Core V9 hotfix: Configurator is Shift-only + version 1.3.6")
+for rel in [
+    "src/main/java/com/pipecore/api/ChemicalTransferAdapter.java",
+    "src/main/java/com/pipecore/api/ChemicalTransportRegistry.java",
+]:
+    path = root / rel
+    print(f"===== {rel} =====")
+    print(path.read_text(encoding="utf-8"))
