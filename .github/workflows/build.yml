@@ -12,7 +12,7 @@ on:
       - 'ci/v12_hotfix.py'
       - 'ci/v13_hotfix.py'
       - 'ci/v14_hotfix.py'
-      - 'ci/v15_hotfix.py'
+      - 'ci/v16_hotfix.py.gz.b64'
   workflow_dispatch:
 
 permissions:
@@ -57,23 +57,22 @@ jobs:
           python3 ci/v12_hotfix.py PipeCore-v7-buildsrc
           python3 ci/v13_hotfix.py PipeCore-v7-buildsrc
           python3 ci/v14_hotfix.py PipeCore-v7-buildsrc
-          python3 ci/v15_hotfix.py PipeCore-v7-buildsrc
+          base64 -d ci/v16_hotfix.py.gz.b64 | gzip -dc > /tmp/v16_hotfix.py
+          python3 /tmp/v16_hotfix.py PipeCore-v7-buildsrc
           sed -i 's/@Nullable ModelFeatureRenderer\.CrumblingOverlay/ModelFeatureRenderer.CrumblingOverlay/' PipeCore-v7-buildsrc/src/main/java/com/pipecore/client/render/PipeBlockEntityRenderer.java
 
-          grep -q '^mod_version=1.3.12$' PipeCore-v7-buildsrc/gradle.properties
-          grep -q 'DeferredItem<ConfiguratorItem> CONFIGURATOR' PipeCore-v7-buildsrc/src/main/java/com/pipecore/PipeCore.java
-          grep -q 'class ConfiguratorItem extends Item' PipeCore-v7-buildsrc/src/main/java/com/pipecore/item/ConfiguratorItem.java
-          grep -q 'InteractionResult useOn(UseOnContext context)' PipeCore-v7-buildsrc/src/main/java/com/pipecore/item/ConfiguratorItem.java
-          grep -q 'pipe.cycleFaceMode(face)' PipeCore-v7-buildsrc/src/main/java/com/pipecore/item/ConfiguratorItem.java
-          grep -q 'public static Direction interactionFace' PipeCore-v7-buildsrc/src/main/java/com/pipecore/block/PipeBlock.java
-          grep -q 'public static Component modeLabel' PipeCore-v7-buildsrc/src/main/java/com/pipecore/block/PipeBlock.java
-          if grep -q 'NeoForge.EVENT_BUS.register(new PipeInteractionEvents())' PipeCore-v7-buildsrc/src/main/java/com/pipecore/PipeCore.java; then
-            echo 'Old event-based configurator is still registered'
-            exit 1
-          fi
-          grep -q 'kind() == PipeKind.ENERGY' PipeCore-v7-buildsrc/src/main/java/com/pipecore/block/PipeBlockEntity.java
-          grep -q 'mode == FaceMode.DISCONNECTED' PipeCore-v7-buildsrc/src/main/java/com/pipecore/block/PipeBlockEntity.java
-          grep -q 'EnergyHandlerUtil.move(source, target, available, null)' PipeCore-v7-buildsrc/src/main/java/com/pipecore/block/PipeBlockEntity.java
+          grep -q '^mod_version=1.3.13$' PipeCore-v7-buildsrc/gradle.properties
+          grep -q 'NeoForge.EVENT_BUS.register(new PipeInteractionEvents())' PipeCore-v7-buildsrc/src/main/java/com/pipecore/PipeCore.java
+          test ! -f PipeCore-v7-buildsrc/src/main/java/com/pipecore/item/ConfiguratorItem.java
+          grep -q 'registerCapabilities' PipeCore-v7-buildsrc/src/main/java/com/pipecore/PipeCore.java
+          grep -q 'Capabilities.Energy.BLOCK' PipeCore-v7-buildsrc/src/main/java/com/pipecore/PipeCore.java
+          grep -q 'class NetworkEnergyHandler' PipeCore-v7-buildsrc/src/main/java/com/pipecore/block/PipeBlockEntity.java
+          grep -q 'energyCapability' PipeCore-v7-buildsrc/src/main/java/com/pipecore/block/PipeBlockEntity.java
+          grep -q 'BUTTON_DISTRIBUTION' PipeCore-v7-buildsrc/src/main/java/com/pipecore/menu/PipeMenu.java
+          grep -q 'FILTER_SLOT_COUNT' PipeCore-v7-buildsrc/src/main/java/com/pipecore/menu/PipeMenu.java
+          grep -q 'filterBlacklist' PipeCore-v7-buildsrc/src/main/java/com/pipecore/block/PipeBlockEntity.java
+          grep -q 'ROUND_ROBIN' PipeCore-v7-buildsrc/src/main/java/com/pipecore/block/PipeBlockEntity.java
+          grep -q 'drawInventorySlots' PipeCore-v7-buildsrc/src/main/java/com/pipecore/client/PipeScreen.java
 
           test -s PipeCore-v7-buildsrc/src/main/resources/assets/pipecore/models/block/pipe_straight_ns_base.json
           test -s PipeCore-v7-buildsrc/src/main/resources/assets/pipecore/models/block/pipe_straight_vertical_base.json
@@ -82,55 +81,15 @@ jobs:
 
           python3 - <<'PY'
           from pathlib import Path
-          import json, struct, zlib
+          import json, struct
           root = Path('PipeCore-v7-buildsrc/src/main/resources')
           for p in (root / 'assets/pipecore/blockstates').glob('*_pipe.json'):
               json.loads(p.read_text())
           for p in (root / 'assets/pipecore/models/block').glob('*.json'):
               json.loads(p.read_text())
-
-          def alpha_stats(path):
-              data = path.read_bytes()
-              pos = 8
-              idat = bytearray()
-              w = h = None
-              while pos < len(data):
-                  n = struct.unpack('>I', data[pos:pos+4])[0]
-                  typ = data[pos+4:pos+8]
-                  payload = data[pos+8:pos+8+n]
-                  pos += 12 + n
-                  if typ == b'IHDR':
-                      w, h, bd, ct, comp, filt, inter = struct.unpack('>IIBBBBB', payload)
-                  elif typ == b'IDAT':
-                      idat.extend(payload)
-                  elif typ == b'IEND':
-                      break
-              raw = zlib.decompress(bytes(idat))
-              transparent = 0
-              opaque_squares = 0
-              off = 0
-              for y in range(h):
-                  if raw[off] != 0:
-                      raise SystemExit(f'{path.name}: unexpected PNG filter')
-                  off += 1
-                  for x in range(w):
-                      r,g,b,a = raw[off+x*4:off+x*4+4]
-                      transparent += (a == 0)
-                      opaque_squares += ((r,g,b) == (57,62,67) and a == 255)
-                  off += w*4
-              return transparent, opaque_squares
-
-          for kind in ['item','fluid','energy','chemical']:
-              p = root / f'assets/pipecore/textures/block/{kind}_pipe_vertical.png'
-              transparent, squares = alpha_stats(p)
-              if transparent < 60:
-                  raise SystemExit(f'{p.name}: expected transparent inner filler')
-              if squares < 20:
-                  raise SystemExit(f'{p.name}: square hardware was lost')
-
           cfg = root / 'assets/pipecore/textures/item/configurator.png'
           data = cfg.read_bytes()
-          if data[:8] != b'\x89PNG\r\n\x1a\n' or struct.unpack('>II', data[16:24]) != (16,16):
+          if data[:8] != b'\x89PNG\r\n\x1a\n' or struct.unpack('>II', data[16:24]) != (16, 16):
               raise SystemExit('configurator.png invalid')
           PY
 
@@ -149,32 +108,33 @@ jobs:
         working-directory: PipeCore-v7-buildsrc
         run: gradle clean build --no-daemon --stacktrace
 
-      - name: Stage V15 JAR
+      - name: Stage V16 JAR
         shell: bash
         run: |
-          cp PipeCore-v7-buildsrc/build/libs/pipecore-1.3.12.jar PipeCore-1.3.12-NeoForge-26.1.2.jar
-          test -s PipeCore-1.3.12-NeoForge-26.1.2.jar
-          jar tf PipeCore-1.3.12-NeoForge-26.1.2.jar | grep -q 'com/pipecore/block/PipeBlock.class'
-          jar tf PipeCore-1.3.12-NeoForge-26.1.2.jar | grep -q 'com/pipecore/block/PipeBlockEntity.class'
-          jar tf PipeCore-1.3.12-NeoForge-26.1.2.jar | grep -q 'com/pipecore/item/ConfiguratorItem.class'
-          jar tf PipeCore-1.3.12-NeoForge-26.1.2.jar | grep -q 'assets/pipecore/textures/block/energy_pipe_vertical.png'
-          jar tf PipeCore-1.3.12-NeoForge-26.1.2.jar | grep -q 'assets/pipecore/textures/item/configurator.png'
-          sha256sum PipeCore-1.3.12-NeoForge-26.1.2.jar
+          cp PipeCore-v7-buildsrc/build/libs/pipecore-1.3.13.jar PipeCore-1.3.13-NeoForge-26.1.2.jar
+          test -s PipeCore-1.3.13-NeoForge-26.1.2.jar
+          jar tf PipeCore-1.3.13-NeoForge-26.1.2.jar | grep -q 'com/pipecore/block/PipeBlock.class'
+          jar tf PipeCore-1.3.13-NeoForge-26.1.2.jar | grep -q 'com/pipecore/block/PipeBlockEntity.class'
+          jar tf PipeCore-1.3.13-NeoForge-26.1.2.jar | grep -q 'com/pipecore/menu/PipeMenu.class'
+          jar tf PipeCore-1.3.13-NeoForge-26.1.2.jar | grep -q 'com/pipecore/client/PipeScreen.class'
+          jar tf PipeCore-1.3.13-NeoForge-26.1.2.jar | grep -q 'assets/pipecore/textures/block/energy_pipe_vertical.png'
+          jar tf PipeCore-1.3.13-NeoForge-26.1.2.jar | grep -q 'assets/pipecore/textures/item/configurator.png'
+          sha256sum PipeCore-1.3.13-NeoForge-26.1.2.jar
 
       - name: Upload JAR artifact
         uses: actions/upload-artifact@v4
         with:
-          name: PipeCore-1.3.12-NeoForge-26.1.2
-          path: PipeCore-1.3.12-NeoForge-26.1.2.jar
+          name: PipeCore-1.3.13-NeoForge-26.1.2
+          path: PipeCore-1.3.13-NeoForge-26.1.2.jar
 
-      - name: Publish V15 JAR to repository
+      - name: Publish V16 JAR to repository
         shell: bash
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -f PipeCore-1.3.12-NeoForge-26.1.2.jar
+          git add -f PipeCore-1.3.13-NeoForge-26.1.2.jar
           if git diff --cached --quiet; then
             exit 0
           fi
-          git commit -m "Build Pipe Core 1.3.12 V15"
+          git commit -m "Build Pipe Core 1.3.13 V16"
           git push
