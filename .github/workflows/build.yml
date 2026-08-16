@@ -51,20 +51,13 @@ jobs:
           test -f PipeCore-v7-buildsrc/src/main/resources/assets/pipecore/models/block/item_pipe_arm_up.json
           test -s PipeCore-v7-buildsrc/src/main/resources/assets/pipecore/textures/item/configurator.png
 
-      - name: Diagnose configurator and energy pipe
+      - name: Diagnose configurator and energy exact code
         shell: bash
         run: |
-          echo '===== JAVA FILES ====='
-          find PipeCore-v7-buildsrc/src/main/java -type f | sort
-          echo '===== CONFIGURATOR REFERENCES ====='
-          grep -RniE 'Configurator|configurator|FaceMode|cycleMode|setMode|useOn|useItemOn|InteractionResult|InteractionHand' PipeCore-v7-buildsrc/src/main/java || true
-          echo '===== ENERGY REFERENCES ====='
-          grep -RniE 'energy|Energy|IEnergy|Capabilities|receiveEnergy|extractEnergy|insert|extract' PipeCore-v7-buildsrc/src/main/java || true
-          echo '===== RELEVANT SOURCE FILES ====='
-          for f in $(grep -RIlE 'Configurator|configurator|FaceMode|energy|Energy|IEnergy|Capabilities' PipeCore-v7-buildsrc/src/main/java); do
-            echo "----- $f -----"
-            sed -n '1,320p' "$f"
-          done
+          echo '===== PipeBlock configurator ====='
+          sed -n '108,150p' PipeCore-v7-buildsrc/src/main/java/com/pipecore/block/PipeBlock.java
+          echo '===== PipeBlockEntity energy ====='
+          sed -n '308,350p' PipeCore-v7-buildsrc/src/main/java/com/pipecore/block/PipeBlockEntity.java
 
       - name: Set up Java 25
         uses: actions/setup-java@v5
