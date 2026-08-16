@@ -293,7 +293,9 @@ normal_helpers_replacement = r'''    public ItemStack normalFilterStack(Directio
         Component value = tagId.isEmpty()
                 ? Component.translatable("ui.pipecore.exact_item")
                 : Component.literal("#" + tagId);
-        player.displayClientMessage(Component.translatable(translationKey, value), true);
+        if (player instanceof ServerPlayer serverPlayer) {
+            serverPlayer.sendSystemMessage(Component.translatable(translationKey, value));
+        }
     }
 
     public ItemStack voidFilterCardStack'''
