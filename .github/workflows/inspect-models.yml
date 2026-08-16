@@ -29,14 +29,8 @@ jobs:
           python3 ci/v8_hotfix.py PipeCore-v7-buildsrc
           python3 ci/v9_hotfix.py PipeCore-v7-buildsrc
           python3 ci/v10_hotfix.py PipeCore-v7-buildsrc
-      - name: Print pipe model configuration
+      - name: Print pipe base UV configuration
         shell: bash
         run: |
-          cd PipeCore-v7-buildsrc/src/main/resources/assets/pipecore
-          echo '===== BLOCKSTATES ====='
-          for f in blockstates/item_pipe.json blockstates/fluid_pipe.json blockstates/energy_pipe.json blockstates/chemical_pipe.json; do echo "===== $f ====="; cat "$f"; done
-          echo '===== MODELS ====='
-          find models/block -maxdepth 1 -type f -name '*pipe*.json' -print | sort
-          for f in models/block/item_pipe_core.json models/block/item_pipe_arm_up.json models/block/item_pipe_arm_down.json models/block/item_pipe_arm_north.json models/block/item_pipe_arm_south.json models/block/item_pipe_arm_east.json models/block/item_pipe_arm_west.json; do if [ -f "$f" ]; then echo "===== $f ====="; cat "$f"; fi; done
-          echo '===== ALL PIPE TEXTURES ====='
-          find textures/block -maxdepth 1 -type f -name '*pipe*.png' -print -exec file {} \; -exec sha256sum {} \; | sort
+          cd PipeCore-v7-buildsrc/src/main/resources/assets/pipecore/models/block
+          for f in pipe_center_base.json pipe_arm_base.json pipe_arm_up_base.json pipe_arm_down_base.json item_pipe_center.json item_pipe_arm.json item_pipe_arm_up.json item_pipe_arm_down.json; do echo "===== $f ====="; cat "$f"; done
