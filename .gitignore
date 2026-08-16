@@ -3,3 +3,7 @@ build/
 run/
 .idea/
 *.iml
+PipeCore-v7-buildsrc/
+pipecore-src.tar.xz
+work/
+__pycache__/
