@@ -71,10 +71,9 @@ public final class ConfiguratorItem extends Item {
 
         if (!level.isClientSide()) {
             FaceMode next = pipe.cycleFaceMode(face);
-            player.displayClientMessage(
+            player.sendSystemMessage(
                     Component.translatable("message.pipecore.face_mode",
-                            face.getName(), PipeBlock.modeLabel(next)),
-                    true);
+                            face.getName(), PipeBlock.modeLabel(next)));
         }
 
         return InteractionResult.SUCCESS;
