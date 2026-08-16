@@ -8,6 +8,7 @@ on:
       - 'build-trigger.txt'
       - 'ci/v9_hotfix.py'
       - 'ci/v10_hotfix.py'
+      - 'ci/v11_hotfix.py'
   workflow_dispatch:
 
 permissions:
@@ -48,9 +49,10 @@ jobs:
           python3 ci/v8_hotfix.py PipeCore-v7-buildsrc
           python3 ci/v9_hotfix.py PipeCore-v7-buildsrc
           python3 ci/v10_hotfix.py PipeCore-v7-buildsrc
+          python3 ci/v11_hotfix.py PipeCore-v7-buildsrc
           sed -i 's/@Nullable ModelFeatureRenderer\.CrumblingOverlay/ModelFeatureRenderer.CrumblingOverlay/' PipeCore-v7-buildsrc/src/main/java/com/pipecore/client/render/PipeBlockEntityRenderer.java
 
-          grep -q '^mod_version=1.3.7$' PipeCore-v7-buildsrc/gradle.properties
+          grep -q '^mod_version=1.3.8$' PipeCore-v7-buildsrc/gradle.properties
           grep -q 'CONFIGURATOR.get() && player.isShiftKeyDown()' PipeCore-v7-buildsrc/src/main/java/com/pipecore/block/PipeBlock.java
           grep -q 'EnergyHandlerUtil.move' PipeCore-v7-buildsrc/src/main/java/com/pipecore/block/PipeBlockEntity.java
           grep -q 'energyHandler(level, sourcePos' PipeCore-v7-buildsrc/src/main/java/com/pipecore/block/PipeBlockEntity.java
@@ -60,10 +62,26 @@ jobs:
             exit 1
           fi
 
+          grep -q '"center": "pipecore:block/item_pipe"' PipeCore-v7-buildsrc/src/main/resources/assets/pipecore/models/block/item_pipe_center.json
+          grep -q '"side": "pipecore:block/item_pipe_vertical"' PipeCore-v7-buildsrc/src/main/resources/assets/pipecore/models/block/item_pipe_arm.json
+          grep -q '"cap": "pipecore:block/item_pipe"' PipeCore-v7-buildsrc/src/main/resources/assets/pipecore/models/block/item_pipe_arm.json
+          grep -q '"center": "pipecore:block/energy_pipe"' PipeCore-v7-buildsrc/src/main/resources/assets/pipecore/models/block/energy_pipe_center.json
+          grep -q '"side": "pipecore:block/energy_pipe_vertical"' PipeCore-v7-buildsrc/src/main/resources/assets/pipecore/models/block/energy_pipe_arm.json
+          grep -q '"texture": "#center"' PipeCore-v7-buildsrc/src/main/resources/assets/pipecore/models/block/pipe_center_base.json
+          grep -q '"texture": "#cap"' PipeCore-v7-buildsrc/src/main/resources/assets/pipecore/models/block/pipe_arm_base.json
+          grep -q '"texture": "#side"' PipeCore-v7-buildsrc/src/main/resources/assets/pipecore/models/block/pipe_arm_base.json
+
           grep -q 'pipecore:basic_upgrade_card' PipeCore-v7-buildsrc/src/main/resources/data/pipecore/recipe/improved_upgrade_card.json
           grep -q 'pipecore:improved_upgrade_card' PipeCore-v7-buildsrc/src/main/resources/data/pipecore/recipe/advanced_upgrade_card.json
           grep -q 'pipecore:advanced_upgrade_card' PipeCore-v7-buildsrc/src/main/resources/data/pipecore/recipe/ultimate_upgrade_card.json
-          test -f PipeCore-v7-buildsrc/src/main/resources/assets/pipecore/models/block/item_pipe_arm_up.json
+          test -s PipeCore-v7-buildsrc/src/main/resources/assets/pipecore/textures/block/item_pipe.png
+          test -s PipeCore-v7-buildsrc/src/main/resources/assets/pipecore/textures/block/item_pipe_vertical.png
+          test -s PipeCore-v7-buildsrc/src/main/resources/assets/pipecore/textures/block/fluid_pipe.png
+          test -s PipeCore-v7-buildsrc/src/main/resources/assets/pipecore/textures/block/fluid_pipe_vertical.png
+          test -s PipeCore-v7-buildsrc/src/main/resources/assets/pipecore/textures/block/energy_pipe.png
+          test -s PipeCore-v7-buildsrc/src/main/resources/assets/pipecore/textures/block/energy_pipe_vertical.png
+          test -s PipeCore-v7-buildsrc/src/main/resources/assets/pipecore/textures/block/chemical_pipe.png
+          test -s PipeCore-v7-buildsrc/src/main/resources/assets/pipecore/textures/block/chemical_pipe_vertical.png
           test -s PipeCore-v7-buildsrc/src/main/resources/assets/pipecore/textures/item/configurator.png
 
       - name: Set up Java 25
@@ -81,31 +99,34 @@ jobs:
         working-directory: PipeCore-v7-buildsrc
         run: gradle clean build --no-daemon --stacktrace
 
-      - name: Stage V10 JAR
+      - name: Stage V11 JAR
         shell: bash
         run: |
-          cp PipeCore-v7-buildsrc/build/libs/pipecore-1.3.7.jar PipeCore-1.3.7-NeoForge-26.1.2.jar
-          test -s PipeCore-1.3.7-NeoForge-26.1.2.jar
-          jar tf PipeCore-1.3.7-NeoForge-26.1.2.jar | grep -q 'com/pipecore/block/PipeBlock.class'
-          jar tf PipeCore-1.3.7-NeoForge-26.1.2.jar | grep -q 'com/pipecore/block/PipeBlockEntity.class'
-          jar tf PipeCore-1.3.7-NeoForge-26.1.2.jar | grep -q 'com/pipecore/api/ChemicalTransportRegistry.class'
-          jar tf PipeCore-1.3.7-NeoForge-26.1.2.jar | grep -q 'assets/pipecore/textures/item/configurator.png'
-          sha256sum PipeCore-1.3.7-NeoForge-26.1.2.jar
+          cp PipeCore-v7-buildsrc/build/libs/pipecore-1.3.8.jar PipeCore-1.3.8-NeoForge-26.1.2.jar
+          test -s PipeCore-1.3.8-NeoForge-26.1.2.jar
+          jar tf PipeCore-1.3.8-NeoForge-26.1.2.jar | grep -q 'com/pipecore/block/PipeBlock.class'
+          jar tf PipeCore-1.3.8-NeoForge-26.1.2.jar | grep -q 'com/pipecore/block/PipeBlockEntity.class'
+          jar tf PipeCore-1.3.8-NeoForge-26.1.2.jar | grep -q 'com/pipecore/api/ChemicalTransportRegistry.class'
+          jar tf PipeCore-1.3.8-NeoForge-26.1.2.jar | grep -q 'assets/pipecore/models/block/pipe_center_base.json'
+          jar tf PipeCore-1.3.8-NeoForge-26.1.2.jar | grep -q 'assets/pipecore/models/block/pipe_arm_base.json'
+          jar tf PipeCore-1.3.8-NeoForge-26.1.2.jar | grep -q 'assets/pipecore/textures/block/energy_pipe_vertical.png'
+          jar tf PipeCore-1.3.8-NeoForge-26.1.2.jar | grep -q 'assets/pipecore/textures/item/configurator.png'
+          sha256sum PipeCore-1.3.8-NeoForge-26.1.2.jar
 
       - name: Upload JAR artifact
         uses: actions/upload-artifact@v4
         with:
-          name: PipeCore-1.3.7-NeoForge-26.1.2
-          path: PipeCore-1.3.7-NeoForge-26.1.2.jar
+          name: PipeCore-1.3.8-NeoForge-26.1.2
+          path: PipeCore-1.3.8-NeoForge-26.1.2.jar
 
-      - name: Publish V10 JAR to repository
+      - name: Publish V11 JAR to repository
         shell: bash
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -f PipeCore-1.3.7-NeoForge-26.1.2.jar
+          git add -f PipeCore-1.3.8-NeoForge-26.1.2.jar
           if git diff --cached --quiet; then
             exit 0
           fi
-          git commit -m "Build Pipe Core 1.3.7 V10"
+          git commit -m "Build Pipe Core 1.3.8 V11"
           git push
