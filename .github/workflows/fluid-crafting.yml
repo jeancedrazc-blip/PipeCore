@@ -44,6 +44,27 @@ jobs:
         working-directory: FluidBucketCrafting
         run: gradle clean build --no-daemon --stacktrace
 
+      - name: Runtime smoke test
+        working-directory: FluidBucketCrafting
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p run
+          echo 'eula=true' > run/eula.txt
+          set +e
+          timeout 90s gradle runServer --no-daemon > /tmp/fluidbucket-server.log 2>&1
+          status=$?
+          set -e
+          tail -n 160 /tmp/fluidbucket-server.log
+          if grep -Eiq 'mixin apply failed|failed to apply mixin|modloadingexception|exception in thread|failed to load mod' /tmp/fluidbucket-server.log; then
+            echo 'Runtime startup reported a mod/mixin failure.' >&2
+            exit 1
+          fi
+          if ! grep -Eq 'Done \([0-9.]+s\)!|For help, type' /tmp/fluidbucket-server.log; then
+            echo "Server did not reach ready state (timeout/exit status: $status)." >&2
+            exit 1
+          fi
+
       - name: Stage artifacts
         shell: bash
         run: |
