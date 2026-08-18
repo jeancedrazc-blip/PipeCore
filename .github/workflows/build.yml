@@ -18,15 +18,15 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Reconstruct Cage Trap source
+      - name: Reconstruct Cage Trap 1.1.0 source
         shell: bash
         run: |
-          base64 -d cagetrap-src-v3.b64 > cagetrap-src.tar.xz
-          echo '7c9d74f97c94afc60218489493472142631a285a8b89345533cc436b023c9bcd  cagetrap-src.tar.xz' | sha256sum -c -
-          xz -t cagetrap-src.tar.xz
-          tar -xJf cagetrap-src.tar.xz
-          test -f CageTrapProject/build.gradle
-          test -f CageTrapProject/src/main/resources/META-INF/JEAN_CEDRAZ.SIGNATURE
+          base64 -d cagetrap-src-v4.b64 > cagetrap-src-v4.tar.xz
+          echo '4b9e15a8341dd138ab112f47ac5aeaa569488dd571559310021f1ea31444941d  cagetrap-src-v4.tar.xz' | sha256sum -c -
+          xz -t cagetrap-src-v4.tar.xz
+          tar -xJf cagetrap-src-v4.tar.xz
+          test -f CageTrapProjectV4/build.gradle
+          test -f CageTrapProjectV4/src/main/resources/META-INF/JEAN_CEDRAZ.SIGNATURE
 
       - name: Set up Java 25
         uses: actions/setup-java@v5
@@ -40,7 +40,7 @@ jobs:
           gradle-version: '9.2.1'
 
       - name: Validate resources
-        working-directory: CageTrapProject
+        working-directory: CageTrapProjectV4
         run: |
           python3 - <<'PY'
           import json, pathlib, struct
@@ -53,15 +53,22 @@ jobs:
               w,h=struct.unpack('>II', b[16:24])
               assert (w,h)==(16,16), (p,w,h)
           assert (root/'META-INF/JEAN_CEDRAZ.SIGNATURE').is_file()
+          blockstate=json.loads((root/'assets/cagetrap/blockstates/cage_trap.json').read_text())
+          assert 'open=true' in blockstate['variants'] and 'open=false' in blockstate['variants']
+          recipe=json.loads((root/'data/cagetrap/recipe/cage_trap.json').read_text())
+          assert recipe['pattern']==['NBN','BRB','NBN']
+          assert recipe['key']['N']=='minecraft:iron_nugget'
+          assert recipe['key']['B']=='minecraft:iron_bars'
+          assert recipe['key']['R']=='minecraft:redstone'
           print('Resources OK')
           PY
 
       - name: Compile and build
-        working-directory: CageTrapProject
+        working-directory: CageTrapProjectV4
         run: gradle clean build --no-daemon --stacktrace
 
       - name: Server smoke test
-        working-directory: CageTrapProject
+        working-directory: CageTrapProjectV4
         shell: bash
         run: |
           mkdir -p run
@@ -82,23 +89,26 @@ jobs:
       - name: Stage and inspect JAR
         shell: bash
         run: |
-          cp CageTrapProject/build/libs/cagetrap-1.0.0.jar CageTrap-1.0.0-NeoForge-26.1.2.jar
-          test -s CageTrap-1.0.0-NeoForge-26.1.2.jar
-          unzip -t CageTrap-1.0.0-NeoForge-26.1.2.jar
-          jar tf CageTrap-1.0.0-NeoForge-26.1.2.jar | grep -q 'com/jeancedraz/cagetrap/CageTrap.class'
-          jar tf CageTrap-1.0.0-NeoForge-26.1.2.jar | grep -q 'com/jeancedraz/cagetrap/CageTrapBlock.class'
-          jar tf CageTrap-1.0.0-NeoForge-26.1.2.jar | grep -q 'com/jeancedraz/cagetrap/CageTrapBlockEntity.class'
-          jar tf CageTrap-1.0.0-NeoForge-26.1.2.jar | grep -q 'com/jeancedraz/cagetrap/client/CageTrapBlockEntityRenderer.class'
-          jar tf CageTrap-1.0.0-NeoForge-26.1.2.jar | grep -q 'META-INF/JEAN_CEDRAZ.SIGNATURE'
-          jar tf CageTrap-1.0.0-NeoForge-26.1.2.jar | grep -q 'assets/cagetrap/textures/block/cage_trap.png'
-          if jar tf CageTrap-1.0.0-NeoForge-26.1.2.jar | grep -Eq 'untamedwilds|com/pipecore'; then
+          cp CageTrapProjectV4/build/libs/cagetrap-1.1.0.jar CageTrap-1.1.0-NeoForge-26.1.2.jar
+          test -s CageTrap-1.1.0-NeoForge-26.1.2.jar
+          unzip -t CageTrap-1.1.0-NeoForge-26.1.2.jar
+          jar tf CageTrap-1.1.0-NeoForge-26.1.2.jar | grep -q 'com/jeancedraz/cagetrap/CageTrap.class'
+          jar tf CageTrap-1.1.0-NeoForge-26.1.2.jar | grep -q 'com/jeancedraz/cagetrap/CageTrapBlock.class'
+          jar tf CageTrap-1.1.0-NeoForge-26.1.2.jar | grep -q 'com/jeancedraz/cagetrap/CageTrapBlockEntity.class'
+          jar tf CageTrap-1.1.0-NeoForge-26.1.2.jar | grep -q 'com/jeancedraz/cagetrap/CageTrapItem.class'
+          jar tf CageTrap-1.1.0-NeoForge-26.1.2.jar | grep -q 'com/jeancedraz/cagetrap/client/CageTrapBlockEntityRenderer.class'
+          jar tf CageTrap-1.1.0-NeoForge-26.1.2.jar | grep -q 'META-INF/JEAN_CEDRAZ.SIGNATURE'
+          jar tf CageTrap-1.1.0-NeoForge-26.1.2.jar | grep -q 'assets/cagetrap/models/block/cage_trap_open.json'
+          jar tf CageTrap-1.1.0-NeoForge-26.1.2.jar | grep -q 'assets/cagetrap/models/block/cage_trap_closed.json'
+          jar tf CageTrap-1.1.0-NeoForge-26.1.2.jar | grep -q 'assets/cagetrap/items/cage_trap_filled.json'
+          if jar tf CageTrap-1.1.0-NeoForge-26.1.2.jar | grep -Eq 'untamedwilds|com/pipecore'; then
             echo 'Unexpected reference implementation classes found in final JAR'
             exit 1
           fi
-          sha256sum CageTrap-1.0.0-NeoForge-26.1.2.jar
+          sha256sum CageTrap-1.1.0-NeoForge-26.1.2.jar
 
       - name: Upload JAR artifact
         uses: actions/upload-artifact@v4
         with:
-          name: CageTrap-1.0.0-NeoForge-26.1.2
-          path: CageTrap-1.0.0-NeoForge-26.1.2.jar
+          name: CageTrap-1.1.0-NeoForge-26.1.2
+          path: CageTrap-1.1.0-NeoForge-26.1.2.jar
