@@ -3,6 +3,8 @@ name: Build Cage Trap
 on:
   push:
     branches: [ 'agent/cagetrap-v1' ]
+  pull_request:
+    branches: [ main ]
   workflow_dispatch:
 
 permissions:
