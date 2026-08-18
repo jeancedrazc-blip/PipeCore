@@ -21,8 +21,8 @@ jobs:
       - name: Reconstruct Cage Trap source
         shell: bash
         run: |
-          base64 -d cagetrap-src-v2.b64 > cagetrap-src.tar.xz
-          echo '1e6d7a9b5cf5b3c003b503de2caa8240286bca1561474d7780c6c525dc38572b  cagetrap-src.tar.xz' | sha256sum -c -
+          base64 -d cagetrap-src-v3.b64 > cagetrap-src.tar.xz
+          echo '7c9d74f97c94afc60218489493472142631a285a8b89345533cc436b023c9bcd  cagetrap-src.tar.xz' | sha256sum -c -
           xz -t cagetrap-src.tar.xz
           tar -xJf cagetrap-src.tar.xz
           test -f CageTrapProject/build.gradle
