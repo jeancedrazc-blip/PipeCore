@@ -1,0 +1,103 @@
+name: Build RFTools Builder 26.1.2 Port
+
+on:
+  push:
+    branches: [ 'agent/rftoolsbuilder-port-26.1.2' ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Reconstruct source
+        shell: bash
+        run: |
+          base64 -d rftoolsbuilder-port261-src.b64 > rftoolsbuilder-port261-src.tar.xz
+          xz -t rftoolsbuilder-port261-src.tar.xz
+          tar -xJf rftoolsbuilder-port261-src.tar.xz
+          test -f RFToolsBuilderPort261/build.gradle
+          test -f RFToolsBuilderPort261/src/main/resources/META-INF/LICENSE_RFToolsBuilder.txt
+
+      - name: Set up Java 25
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - name: Set up Gradle 9.2.1
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.2.1'
+
+      - name: Validate resources
+        working-directory: RFToolsBuilderPort261
+        run: |
+          python3 - <<'PY'
+          import json, pathlib, struct
+          root=pathlib.Path('src/main/resources')
+          count=0
+          for p in root.rglob('*.json'):
+              json.loads(p.read_text(encoding='utf-8'))
+              count += 1
+          for p in root.rglob('*.png'):
+              b=p.read_bytes()
+              assert b[:8] == b'\x89PNG\r\n\x1a\n', p
+              w,h=struct.unpack('>II', b[16:24])
+              assert (w,h)==(16,16), (p,w,h)
+          assert (root/'META-INF/LICENSE_RFToolsBuilder.txt').is_file()
+          assert (root/'data/rftoolsbuilder/recipe/shape_card_quarry.json').is_file()
+          assert (root/'data/rftoolsbuilder/recipe/shape_card_quarry_fortune.json').is_file()
+          assert (root/'data/rftoolsbuilder/recipe/shape_card_quarry_silk.json').is_file()
+          print(f'Resources OK: {count} JSON files')
+          PY
+
+      - name: Compile and build
+        working-directory: RFToolsBuilderPort261
+        run: gradle clean build --no-daemon --stacktrace
+
+      - name: Server smoke test
+        working-directory: RFToolsBuilderPort261
+        shell: bash
+        run: |
+          mkdir -p run
+          printf 'eula=true\n' > run/eula.txt
+          set +e
+          timeout 90s gradle runServer --no-daemon --stacktrace > server-smoke.log 2>&1
+          code=$?
+          set -e
+          cat server-smoke.log
+          if grep -Eqi 'ModLoadingException|Failed to load mod|Exception in thread "main"|Crash report' server-smoke.log; then
+            exit 1
+          fi
+          if ! grep -Eq 'Done \(' server-smoke.log; then
+            echo "Server did not reach ready state (exit code: $code)"
+            exit 1
+          fi
+
+      - name: Stage and inspect JAR
+        shell: bash
+        run: |
+          JAR=$(find RFToolsBuilderPort261/build/libs -maxdepth 1 -name 'rftoolsbuilder-*.jar' ! -name '*sources*' | head -n1)
+          test -n "$JAR"
+          cp "$JAR" RFToolsBuilder-26.1.2-7.0.5-port.1.jar
+          test -s RFToolsBuilder-26.1.2-7.0.5-port.1.jar
+          unzip -t RFToolsBuilder-26.1.2-7.0.5-port.1.jar
+          jar tf RFToolsBuilder-26.1.2-7.0.5-port.1.jar | grep -q 'mcjty/rftoolsbuilder/RFToolsBuilder.class'
+          jar tf RFToolsBuilder-26.1.2-7.0.5-port.1.jar | grep -q 'mcjty/rftoolsbuilder/BuilderBlockEntity.class'
+          jar tf RFToolsBuilder-26.1.2-7.0.5-port.1.jar | grep -q 'mcjty/rftoolsbuilder/BuilderMenu.class'
+          jar tf RFToolsBuilder-26.1.2-7.0.5-port.1.jar | grep -q 'assets/rftoolsbuilder/items/shape_card_quarry_fortune.json'
+          jar tf RFToolsBuilder-26.1.2-7.0.5-port.1.jar | grep -q 'META-INF/LICENSE_RFToolsBuilder.txt'
+          sha256sum RFToolsBuilder-26.1.2-7.0.5-port.1.jar
+
+      - name: Upload JAR artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: RFToolsBuilder-26.1.2-7.0.5-port.1
+          path: RFToolsBuilder-26.1.2-7.0.5-port.1.jar
