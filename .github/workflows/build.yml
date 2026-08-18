@@ -22,7 +22,7 @@ jobs:
         shell: bash
         run: |
           base64 -d cagetrap-src-v4.b64 > cagetrap-src-v4.tar.xz
-          echo '4b9e15a8341dd138ab112f47ac5aeaa569488dd571559310021f1ea31444941d  cagetrap-src-v4.tar.xz' | sha256sum -c -
+          echo '42c266d8f164f8ce3ddcadd0edda535dfe159ca0373589a9f7b0d4e85dbb35a9  cagetrap-src-v4.tar.xz' | sha256sum -c -
           xz -t cagetrap-src-v4.tar.xz
           tar -xJf cagetrap-src-v4.tar.xz
           test -f CageTrapProjectV4/build.gradle
