@@ -27,6 +27,23 @@ jobs:
           test -f RFToolsBuilderPort261/build.gradle
           test -f RFToolsBuilderPort261/src/main/resources/META-INF/LICENSE_RFToolsBuilder.txt
 
+      - name: Apply 26.1.2 API compatibility patch
+        shell: bash
+        run: |
+          python3 - <<'PYFIX'
+          from pathlib import Path
+          p=Path('RFToolsBuilderPort261/src/main/java/mcjty/rftoolsbuilder/client/BuilderScreen.java')
+          s=p.read_text()
+          s=s.replace('import net.minecraft.client.gui.GuiGraphicsExtractor;\n', 'import net.minecraft.client.Minecraft;\nimport net.minecraft.client.gui.GuiGraphicsExtractor;\n')
+          s=s.replace('import net.minecraft.client.gui.screens.Screen;\n', '')
+          s=s.replace('        super(menu, inventory, title);\n        this.imageWidth = 176;\n        this.imageHeight = 218;\n', '        super(menu, inventory, title, 176, 218);\n')
+          s=s.replace('        boolean fast = Screen.hasShiftDown();', '        boolean fast = Minecraft.getInstance().hasShiftDown();')
+          s=s.replace('    protected void extractBackground(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {', '    public void extractBackground(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {')
+          p.write_text(s)
+          p=Path('RFToolsBuilderPort261/src/main/java/mcjty/rftoolsbuilder/RFToolsBuilder.java')
+          p.write_text(p.read_text().replace('Capabilities.EnergyStorage.BLOCK', 'Capabilities.Energy.BLOCK'))
+          PYFIX
+
       - name: Set up Java 25
         uses: actions/setup-java@v5
         with:
