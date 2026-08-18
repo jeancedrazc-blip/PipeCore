@@ -3,6 +3,8 @@ name: Build RFTools Builder 26.1.2 Port
 on:
   push:
     branches: [ 'agent/rftoolsbuilder-port-26.1.2' ]
+  pull_request:
+    branches: [ main ]
   workflow_dispatch:
 
 permissions:
@@ -39,7 +41,7 @@ jobs:
       - name: Validate resources
         working-directory: RFToolsBuilderPort261
         run: |
-          python3 - <<'PY'
+          python3 - <<'PY2'
           import json, pathlib, struct
           root=pathlib.Path('src/main/resources')
           count=0
@@ -56,7 +58,7 @@ jobs:
           assert (root/'data/rftoolsbuilder/recipe/shape_card_quarry_fortune.json').is_file()
           assert (root/'data/rftoolsbuilder/recipe/shape_card_quarry_silk.json').is_file()
           print(f'Resources OK: {count} JSON files')
-          PY
+          PY2
 
       - name: Compile and build
         working-directory: RFToolsBuilderPort261
