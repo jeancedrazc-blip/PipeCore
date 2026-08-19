@@ -5,9 +5,14 @@
 - Project: PipeCore
 - Minecraft: 26.1.2
 - Loader: NeoForge
-- User-confirmed current development version: V24
-- Repository `main` is currently behind the user-confirmed V24 baseline.
-- Until the real V24 JAR/source is imported, **do not use the current `main` branch as the authoritative implementation baseline for new PipeCore development**.
+- Current project version: V24
+- Internal mod version in the canonical supplied JAR: `1.3.21`
+- Canonical JAR supplied by the user on 2026-08-19.
+- Canonical JAR SHA-256: `46cfabdcf125a999df400ac00a15756a941c1b3febe8c08ae7f2b853b8cb69ca`
+- Mod ID: `pipecore`
+- Main package: `com.pipecore`
+
+The supplied `1.3.21` JAR is the authoritative V24 runtime baseline. Older repository source/history must not be treated as equivalent to V24 unless it is verified against this artifact.
 
 ## Safety rule
 
@@ -15,9 +20,10 @@ Before changing PipeCore in any conversation:
 
 1. Read this file.
 2. Check the latest tag/release/commit.
-3. Confirm that the repository baseline matches the current project version.
-4. If repository code and project version disagree, stop implementation and import/verify the correct baseline first.
+3. Verify that the working source/artifact matches V24 / `1.3.21` or a later explicitly recorded version.
+4. Compare the candidate baseline against the canonical SHA-256 when the original V24 JAR is involved.
 5. Never infer or recreate missing versions from memory.
+6. Never remove an existing feature unless the user explicitly requests it.
 
 ## Known design decisions that must be preserved
 
@@ -29,10 +35,10 @@ Before changing PipeCore in any conversation:
 - Pipe contents must remain visually readable through the pipe geometry.
 - Filter/discard controls belong only to item-pipe functionality unless explicitly redesigned later.
 
-## Version gap
+## Repository/source status
 
-The repository history currently available here does not contain the complete V18–V24 canonical line. Those versions must not be reconstructed by assumption. Import the real V24 artifact/source before the next PipeCore feature release.
+The GitHub repository predates parts of the canonical V24 development line. The supplied V24 `1.3.21` JAR closes the version-identification gap, but the matching source tree has not yet been proven identical to that binary. For future development, verify/reconstruct/import the matching V24 source before making structural changes.
 
 ## Invalid historical branch/PR
 
-PR #5 (`Pipe Core V18: render, UI and card rules`) was created from an outdated base and has been closed without merge. It is not part of the canonical line.
+PR #5 (`Pipe Core V18: render, UI and card rules`) was created from an outdated base and was closed without merge. It is not part of the canonical line.
