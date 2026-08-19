@@ -2,6 +2,8 @@ name: Inspect Cage Trap Current
 on:
   push:
     branches: [ 'agent/cagetrap-v1' ]
+  pull_request:
+    branches: [ main ]
   workflow_dispatch:
 permissions:
   contents: read
