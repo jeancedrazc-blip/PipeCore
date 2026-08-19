@@ -1,0 +1,57 @@
+name: Inspect Pipe Core Filter Source
+
+on:
+  push:
+    branches: [ 'agent/pipecore-filter-rework' ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Reconstruct source
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import base64
+          parts = sorted(Path('build-src').glob('part_*.b64'))
+          data = b''.join(p.read_bytes() for p in parts)
+          Path('pipecore-src.tar.xz').write_bytes(base64.b64decode(data, validate=False))
+          PY
+          tar -xJf pipecore-src.tar.xz
+      - name: Apply through V17
+        shell: bash
+        run: |
+          base64 -d ci/v7_patch.py.gz.b64 | gzip -dc > /tmp/v7_patch.py
+          python3 /tmp/v7_patch.py PipeCore-v7-buildsrc
+          python3 ci/v8_hotfix.py PipeCore-v7-buildsrc
+          python3 ci/v9_hotfix.py PipeCore-v7-buildsrc
+          python3 ci/v10_hotfix.py PipeCore-v7-buildsrc
+          python3 ci/v11_hotfix.py PipeCore-v7-buildsrc
+          python3 ci/v12_hotfix.py PipeCore-v7-buildsrc
+          python3 ci/v13_hotfix.py PipeCore-v7-buildsrc
+          python3 ci/v14_hotfix.py PipeCore-v7-buildsrc
+          cat ci/v16/part_*.b64 | base64 -d | gzip -dc > /tmp/v16_hotfix.py
+          python3 /tmp/v16_hotfix.py PipeCore-v7-buildsrc
+          python3 ci/v17_hotfix.py PipeCore-v7-buildsrc
+      - name: Stage relevant sources
+        shell: bash
+        run: |
+          mkdir inspection
+          cp PipeCore-v7-buildsrc/src/main/java/com/pipecore/block/PipeBlockEntity.java inspection/
+          cp PipeCore-v7-buildsrc/src/main/java/com/pipecore/menu/PipeMenu.java inspection/
+          cp PipeCore-v7-buildsrc/src/main/java/com/pipecore/client/PipeScreen.java inspection/
+          cp PipeCore-v7-buildsrc/src/main/resources/assets/pipecore/lang/pt_br.json inspection/
+          cp PipeCore-v7-buildsrc/src/main/resources/assets/pipecore/lang/en_us.json inspection/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pipecore-v17-filter-source
+          path: inspection
