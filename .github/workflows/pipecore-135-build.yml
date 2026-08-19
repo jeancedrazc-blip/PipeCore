@@ -5,11 +5,13 @@ on:
     branches: [ 'agent/pipecore-filter-rework' ]
     paths:
       - 'ci/v18_hotfix.py'
+      - 'ci/v18_compat_fix.py'
       - '.github/workflows/pipecore-135-build.yml'
   pull_request:
     branches: [ main ]
     paths:
       - 'ci/v18_hotfix.py'
+      - 'ci/v18_compat_fix.py'
       - '.github/workflows/pipecore-135-build.yml'
   workflow_dispatch:
 
@@ -58,6 +60,7 @@ jobs:
           python3 /tmp/v16_hotfix.py PipeCore-v7-buildsrc
           python3 ci/v17_hotfix.py PipeCore-v7-buildsrc
           python3 ci/v18_hotfix.py PipeCore-v7-buildsrc
+          python3 ci/v18_compat_fix.py PipeCore-v7-buildsrc
           sed -i 's/@Nullable ModelFeatureRenderer\.CrumblingOverlay/ModelFeatureRenderer.CrumblingOverlay/' PipeCore-v7-buildsrc/src/main/java/com/pipecore/client/render/PipeBlockEntityRenderer.java
 
       - name: Validate V18 architecture
@@ -76,6 +79,8 @@ jobs:
           assert 'normalFilterBlacklist' in be and 'voidFilterBlacklist' in be
           assert 'toggleNormalFilterRule' in be and 'toggleVoidFilterRule' in be
           assert 'matchedWhitelist' in be and 'shouldVoid' in be
+          assert 'slot < 9 && filterBlacklist[i]' in be
+          assert 'normalFilterBlacklist[i][slot]);' in be
           assert 'NORMAL_VISIBLE_SLOTS = 10' in menu
           assert 'VOID_VISIBLE_SLOTS = 8' in menu
           assert 'NORMAL_PAGE_COUNT' in menu and 'VOID_PAGE_COUNT' in menu
@@ -129,5 +134,3 @@ jobs:
         with:
           name: PipeCore-1.3.15-NeoForge-26.1.2
           path: PipeCore-1.3.15-NeoForge-26.1.2.jar
-
-# V18 build trigger
