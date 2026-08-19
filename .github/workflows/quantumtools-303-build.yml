@@ -53,6 +53,7 @@ jobs:
           python3 quantumtools-3.0.1-fix.py
           python3 quantumtools-3.0.2-fix.py
           python3 quantumtools-3.0.3-fix.py
+          python3 quantumtools-3.0.3-polish.py
 
       - uses: actions/setup-java@v5
         with:
@@ -87,7 +88,7 @@ jobs:
           assert 'FIRST_OUTPUT' not in menu
           assert 'int[] ys = {80, 80, 80, 107, 107, 107}' in screen
           assert 'Output buffer intentionally hidden' in screen
-          assert 'VISIBLE_ROWS = 6' in filt and 'entryButtons' not in filt
+          assert 'VISIBLE_ROWS = 5' in filt and 'entryButtons' not in filt
           assert 'Axis.ZP.rotationDegrees(180.0F)' in holo
           assert "version = '3.0.3'" in pathlib.Path('build.gradle').read_text()
           print('Quantum Tools 3.0.3 architecture OK')
