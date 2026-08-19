@@ -40,42 +40,51 @@ jobs:
           p = root/'build.gradle'
           s = p.read_text()
           s2, n = re.subn(r"(?m)^version\s*=\s*['\"]1\.1\.0['\"]", "version = '1.1.2'", s, count=1)
-          assert n == 1
+          assert n == 1, 'version line not found'
           p.write_text(s2)
 
           p = java/'CageTrap.java'
           s = p.read_text()
           s2, n = re.subn(r'\.strength\(3\.5F,\s*1200(?:\.0)?F\)', '.strength(2.0F, 1200.0F)', s, count=1)
-          assert n == 1
+          assert n == 1, 'strength call not found'
           p.write_text(s2)
 
           tag = res/'data/minecraft/tags/block/mineable/pickaxe.json'
           tag.parent.mkdir(parents=True, exist_ok=True)
           tag.write_text(json.dumps({'replace': False, 'values': ['cagetrap:cage_trap']}, indent=2) + '\n')
 
+          # The item is a closed cage. OPEN is only the armed blockstate in-world.
           (res/'assets/cagetrap/models/item/cage_trap.json').write_text(json.dumps({'parent': 'cagetrap:block/cage_trap_closed'}, indent=2) + '\n')
           (res/'assets/cagetrap/models/item/cage_trap_filled.json').write_text(json.dumps({'parent': 'cagetrap:block/cage_trap_closed'}, indent=2) + '\n')
 
           p = java/'CageTrapBlockEntity.java'
           s = p.read_text()
           anchor = '    private transient Entity displayEntity;'
-          assert anchor in s
+          assert anchor in s, 'displayEntity field not found'
           s = s.replace(anchor, anchor + '\n    private long captureBlockedUntil = 0L;', 1)
+
           sig = '    public boolean capture(Mob mob) {'
-          assert sig in s
+          assert sig in s, 'capture method not found'
           s = s.replace(sig, sig + '\n        if (level != null && level.getGameTime() < captureBlockedUntil) {\n            return false;\n        }', 1)
 
           start = s.index('    public boolean release() {')
           end = s.index('    public Entity getDisplayEntity()', start)
           r = s[start:end]
+
+          # Keep the released mob well outside the trap collision/capture volume.
           r = r.replace('worldPosition.above(),', 'worldPosition.above(2),', 1)
           r = r.replace('worldPosition.north()', 'worldPosition.north(2)')
           r = r.replace('worldPosition.south()', 'worldPosition.south(2)')
           r = r.replace('worldPosition.east()', 'worldPosition.east(2)')
           r = r.replace('worldPosition.west()', 'worldPosition.west(2)')
-          needle = 'if (serverLevel.addFreshEntity(entity)) {'
-          assert needle in r
-          r = r.replace(needle, 'captureBlockedUntil = serverLevel.getGameTime() + 40L;\n            ' + needle, 1)
+
+          # Block recapture BEFORE addFreshEntity. Do not depend on local variable names.
+          pat = re.compile(r'(?m)^(\s*)if \([^\n]*\.addFreshEntity\([^\n]*\)\) \{')
+          m = pat.search(r)
+          assert m is not None, 'addFreshEntity conditional not found'
+          indent = m.group(1)
+          r = r[:m.start()] + indent + 'captureBlockedUntil = level.getGameTime() + 40L;\n' + r[m.start():]
+
           s = s[:start] + r + s[end:]
           p.write_text(s)
 
@@ -108,12 +117,9 @@ jobs:
               assert b[:8] == b'\x89PNG\r\n\x1a\n', p
               w,h=struct.unpack('>II', b[16:24])
               assert (w,h)==(16,16), (p,w,h)
-          empty=json.loads((root/'assets/cagetrap/models/item/cage_trap.json').read_text())
-          filled=json.loads((root/'assets/cagetrap/models/item/cage_trap_filled.json').read_text())
-          assert empty['parent']=='cagetrap:block/cage_trap_closed'
-          assert filled['parent']=='cagetrap:block/cage_trap_closed'
-          pick=json.loads((root/'data/minecraft/tags/block/mineable/pickaxe.json').read_text())
-          assert 'cagetrap:cage_trap' in pick['values']
+          assert json.loads((root/'assets/cagetrap/models/item/cage_trap.json').read_text())['parent']=='cagetrap:block/cage_trap_closed'
+          assert json.loads((root/'assets/cagetrap/models/item/cage_trap_filled.json').read_text())['parent']=='cagetrap:block/cage_trap_closed'
+          assert 'cagetrap:cage_trap' in json.loads((root/'data/minecraft/tags/block/mineable/pickaxe.json').read_text())['values']
           print('Resources OK')
           PY
 
