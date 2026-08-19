@@ -27,7 +27,7 @@ jobs:
           tar -xJf cagetrap-src-v4.tar.xz
           test -f CageTrapProjectV4/build.gradle
 
-      - name: Apply 1.1.3 fixes
+      - name: Apply 1.1.4 fixes
         shell: bash
         run: |
           python3 - <<'PY'
@@ -39,10 +39,11 @@ jobs:
 
           p = root/'build.gradle'
           s = p.read_text()
-          s2, n = re.subn(r"(?m)^version\s*=\s*['\"]1\.1\.0['\"]", "version = '1.1.3'", s, count=1)
+          s2, n = re.subn(r"(?m)^version\s*=\s*['\"]1\.1\.0['\"]", "version = '1.1.4'", s, count=1)
           assert n == 1, 'version line not found'
           p.write_text(s2)
 
+          # Keep the easier metal-block mining behavior.
           p = java/'CageTrap.java'
           s = p.read_text()
           s2, n = re.subn(r'\.strength\(3\.5F,\s*1200(?:\.0)?F\)', '.strength(2.0F, 1200.0F)', s, count=1)
@@ -53,7 +54,7 @@ jobs:
           tag.parent.mkdir(parents=True, exist_ok=True)
           tag.write_text(json.dumps({'replace': False, 'values': ['cagetrap:cage_trap']}, indent=2) + '\n')
 
-          # Inventory item is always a closed cage. The filled state gets a distinct orange energy core.
+          # Inventory item is always a closed cage. Filled item has a distinct orange indicator.
           (res/'assets/cagetrap/models/item/cage_trap.json').write_text(json.dumps({'parent': 'cagetrap:block/cage_trap_closed'}, indent=2) + '\n')
           (res/'assets/cagetrap/models/item/cage_trap_filled.json').write_text(json.dumps({
               'parent': 'cagetrap:block/cage_trap_closed',
@@ -66,33 +67,51 @@ jobs:
 
           p = java/'CageTrapBlockEntity.java'
           s = p.read_text()
+
+          # One placed trap gets exactly one capture/release cycle. After a successful
+          # release it remains visually open but permanently disarmed until the block
+          # is broken and placed again (new BE => disarmed=false).
           anchor = '    private transient Entity displayEntity;'
           assert anchor in s, 'displayEntity field not found'
-          s = s.replace(anchor, anchor + '\n    private long captureBlockedUntil = 0L;', 1)
+          s = s.replace(anchor, anchor + '\n    private boolean disarmed = false;', 1)
 
-          sig = '    public boolean capture(Mob mob) {'
-          assert sig in s, 'capture method not found'
-          s = s.replace(sig, sig + '\n        if (level != null && level.getGameTime() < captureBlockedUntil) {\n            return false;\n        }', 1)
+          capture_sig = '    public boolean capture(Mob mob) {'
+          assert capture_sig in s, 'capture method not found'
+          s = s.replace(capture_sig, capture_sig + '\n        if (disarmed) {\n            return false;\n        }', 1)
 
           start = s.index('    public boolean release() {')
           end = s.index('    public Entity getDisplayEntity()', start)
           r = s[start:end]
+
+          # Spawn the released mob away from the trap as a second safeguard.
           r = r.replace('worldPosition.above(),', 'worldPosition.above(2),', 1)
           r = r.replace('worldPosition.north()', 'worldPosition.north(2)')
           r = r.replace('worldPosition.south()', 'worldPosition.south(2)')
           r = r.replace('worldPosition.east()', 'worldPosition.east(2)')
           r = r.replace('worldPosition.west()', 'worldPosition.west(2)')
+
+          # Mark the placed trap spent only if addFreshEntity actually succeeds.
           pat = re.compile(r'(?m)^(\s*)if \([^\n]*\.addFreshEntity\([^\n]*\)\) \{')
           m = pat.search(r)
           assert m is not None, 'addFreshEntity conditional not found'
-          indent = m.group(1)
-          r = r[:m.start()] + indent + 'captureBlockedUntil = level.getGameTime() + 40L;\n' + r[m.start():]
+          insertion = m.group(0) + '\n' + m.group(1) + '    disarmed = true;'
+          r = r[:m.start()] + insertion + r[m.end():]
           s = s[:start] + r + s[end:]
+
+          # Persist the spent/disarmed state through chunk/world reloads.
+          save_anchor = '        super.saveAdditional(output);'
+          assert save_anchor in s, 'saveAdditional anchor not found'
+          s = s.replace(save_anchor, save_anchor + '\n        output.putBoolean("Disarmed", disarmed);', 1)
+
+          load_anchor = '        super.loadAdditional(input);'
+          assert load_anchor in s, 'loadAdditional anchor not found'
+          s = s.replace(load_anchor, load_anchor + '\n        disarmed = input.getBooleanOr("Disarmed", false);', 1)
+
           p.write_text(s)
 
           sigfile = res/'META-INF/JEAN_CEDRAZ.SIGNATURE'
-          sigfile.write_text(sigfile.read_text().replace('Build line: 1.1.0', 'Build line: 1.1.3'))
-          print('1.1.3 fixes applied')
+          sigfile.write_text(sigfile.read_text().replace('Build line: 1.1.0', 'Build line: 1.1.4'))
+          print('1.1.4 persistent-disarm fixes applied')
           PY
 
       - name: Set up Java 25
@@ -106,7 +125,7 @@ jobs:
         with:
           gradle-version: '9.2.1'
 
-      - name: Validate resources
+      - name: Validate resources and patch
         working-directory: CageTrapProjectV4
         run: |
           python3 - <<'PY'
@@ -115,18 +134,18 @@ jobs:
           for p in root.rglob('*.json'):
               json.loads(p.read_text(encoding='utf-8'))
           for p in root.rglob('*.png'):
-              b=p.read_bytes()
-              assert b[:8] == b'\x89PNG\r\n\x1a\n', p
-              w,h=struct.unpack('>II', b[16:24])
-              assert (w,h)==(16,16), (p,w,h)
-          empty=json.loads((root/'assets/cagetrap/models/item/cage_trap.json').read_text())
-          filled=json.loads((root/'assets/cagetrap/models/item/cage_trap_filled.json').read_text())
-          assert empty['parent']=='cagetrap:block/cage_trap_closed'
-          assert filled['parent']=='cagetrap:block/cage_trap_closed'
-          assert filled['textures']['side']=='cagetrap:block/cage_trap_filled'
-          assert (root/'assets/cagetrap/textures/block/cage_trap_filled.png').is_file()
+              b=p.read_bytes(); assert b[:8] == b'\x89PNG\r\n\x1a\n', p
+              w,h=struct.unpack('>II', b[16:24]); assert (w,h)==(16,16), (p,w,h)
+          assert json.loads((root/'assets/cagetrap/models/item/cage_trap.json').read_text())['parent']=='cagetrap:block/cage_trap_closed'
+          assert json.loads((root/'assets/cagetrap/models/item/cage_trap_filled.json').read_text())['parent']=='cagetrap:block/cage_trap_closed'
           assert 'cagetrap:cage_trap' in json.loads((root/'data/minecraft/tags/block/mineable/pickaxe.json').read_text())['values']
-          print('Resources OK')
+          src=pathlib.Path('src/main/java/com/jeancedraz/cagetrap/CageTrapBlockEntity.java').read_text()
+          assert 'private boolean disarmed = false;' in src
+          assert 'if (disarmed)' in src
+          assert 'output.putBoolean("Disarmed", disarmed);' in src
+          assert 'input.getBooleanOr("Disarmed", false)' in src
+          assert 'captureBlockedUntil' not in src
+          print('Resources and persistent-disarm patch OK')
           PY
 
       - name: Compile and build
@@ -150,18 +169,16 @@ jobs:
       - name: Stage and inspect JAR
         shell: bash
         run: |
-          cp CageTrapProjectV4/build/libs/cagetrap-1.1.3.jar CageTrap-1.1.3-NeoForge-26.1.2.jar
-          test -s CageTrap-1.1.3-NeoForge-26.1.2.jar
-          unzip -t CageTrap-1.1.3-NeoForge-26.1.2.jar
-          jar tf CageTrap-1.1.3-NeoForge-26.1.2.jar | grep -q 'com/jeancedraz/cagetrap/CageTrapBlockEntity.class'
-          jar tf CageTrap-1.1.3-NeoForge-26.1.2.jar | grep -q 'assets/cagetrap/textures/block/cage_trap_filled.png'
-          jar tf CageTrap-1.1.3-NeoForge-26.1.2.jar | grep -q 'data/minecraft/tags/block/mineable/pickaxe.json'
-          unzip -p CageTrap-1.1.3-NeoForge-26.1.2.jar assets/cagetrap/models/item/cage_trap.json | grep -q 'cage_trap_closed'
-          unzip -p CageTrap-1.1.3-NeoForge-26.1.2.jar assets/cagetrap/models/item/cage_trap_filled.json | grep -q 'cage_trap_filled'
-          sha256sum CageTrap-1.1.3-NeoForge-26.1.2.jar
+          cp CageTrapProjectV4/build/libs/cagetrap-1.1.4.jar CageTrap-1.1.4-NeoForge-26.1.2.jar
+          test -s CageTrap-1.1.4-NeoForge-26.1.2.jar
+          unzip -t CageTrap-1.1.4-NeoForge-26.1.2.jar
+          jar tf CageTrap-1.1.4-NeoForge-26.1.2.jar | grep -q 'com/jeancedraz/cagetrap/CageTrapBlockEntity.class'
+          jar tf CageTrap-1.1.4-NeoForge-26.1.2.jar | grep -q 'assets/cagetrap/textures/block/cage_trap_filled.png'
+          jar tf CageTrap-1.1.4-NeoForge-26.1.2.jar | grep -q 'data/minecraft/tags/block/mineable/pickaxe.json'
+          sha256sum CageTrap-1.1.4-NeoForge-26.1.2.jar
 
       - name: Upload JAR artifact
         uses: actions/upload-artifact@v4
         with:
-          name: CageTrap-1.1.3-NeoForge-26.1.2
-          path: CageTrap-1.1.3-NeoForge-26.1.2.jar
+          name: CageTrap-1.1.4-NeoForge-26.1.2
+          path: CageTrap-1.1.4-NeoForge-26.1.2.jar
