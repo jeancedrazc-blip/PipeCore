@@ -1,0 +1,24 @@
+name: Inspect Cage Trap 1.1.5
+on:
+  push:
+    branches: [ 'agent/cagetrap-v1' ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - shell: bash
+        run: |
+          base64 -d cagetrap-src-v4.b64 > cagetrap-src-v4.tar.xz
+          tar -xJf cagetrap-src-v4.tar.xz
+          echo '=== FILES ==='
+          find CageTrapProjectV4/src/main/java/com/jeancedraz/cagetrap -type f -maxdepth 2 -print
+          echo '=== BLOCK ENTITY ==='
+          sed -n '1,520p' CageTrapProjectV4/src/main/java/com/jeancedraz/cagetrap/CageTrapBlockEntity.java
+          echo '=== RENDERER CANDIDATES ==='
+          for f in CageTrapProjectV4/src/main/java/com/jeancedraz/cagetrap/*Renderer*.java CageTrapProjectV4/src/main/java/com/jeancedraz/cagetrap/client/*.java; do if [ -f "$f" ]; then echo "=== $f ==="; sed -n '1,420p' "$f"; fi; done
