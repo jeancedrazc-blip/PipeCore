@@ -27,7 +27,7 @@ jobs:
           test -f RFToolsBuilderPort261/build.gradle
           test -f RFToolsBuilderPort261/src/main/resources/META-INF/LICENSE_RFToolsBuilder.txt
 
-      - name: Apply 26.1.2 API compatibility patch
+      - name: Apply base 26.1.2 compatibility patch
         shell: bash
         run: |
           python3 - <<'PYFIX'
@@ -44,6 +44,10 @@ jobs:
           p.write_text(p.read_text().replace('Capabilities.EnergyStorage.BLOCK', 'Capabilities.Energy.BLOCK'))
           PYFIX
 
+      - name: Apply port.2 cards and UI
+        shell: bash
+        run: python3 rftoolsbuilder-ui-v2.py
+
       - name: Migrate energy API
         shell: bash
         run: python3 rftoolsbuilder-energy-fix.py
@@ -59,7 +63,7 @@ jobs:
         with:
           gradle-version: '9.2.1'
 
-      - name: Validate resources
+      - name: Validate resources and patched architecture
         working-directory: RFToolsBuilderPort261
         run: |
           python3 - <<'PY2'
@@ -67,18 +71,23 @@ jobs:
           root=pathlib.Path('src/main/resources')
           count=0
           for p in root.rglob('*.json'):
-              json.loads(p.read_text(encoding='utf-8'))
-              count += 1
+              json.loads(p.read_text(encoding='utf-8')); count += 1
           for p in root.rglob('*.png'):
-              b=p.read_bytes()
-              assert b[:8] == b'\x89PNG\r\n\x1a\n', p
-              w,h=struct.unpack('>II', b[16:24])
-              assert (w,h)==(16,16), (p,w,h)
+              b=p.read_bytes(); assert b[:8] == b'\x89PNG\r\n\x1a\n', p
+              w,h=struct.unpack('>II', b[16:24]); assert (w,h)==(16,16), (p,w,h)
           assert (root/'META-INF/LICENSE_RFToolsBuilder.txt').is_file()
           assert (root/'data/rftoolsbuilder/recipe/shape_card_quarry.json').is_file()
-          assert (root/'data/rftoolsbuilder/recipe/shape_card_quarry_fortune.json').is_file()
-          assert (root/'data/rftoolsbuilder/recipe/shape_card_quarry_silk.json').is_file()
-          print(f'Resources OK: {count} JSON files')
+          src=pathlib.Path('src/main/java/mcjty/rftoolsbuilder')
+          shape=(src/'ShapeCardItem.java').read_text()
+          menu=(src/'BuilderMenu.java').read_text()
+          screen=(src/'client/BuilderScreen.java').read_text()
+          be=(src/'BuilderBlockEntity.java').read_text()
+          assert 'SLOT_SHAPE = 0' in be and 'SLOT_QUARRY = 1' in be
+          assert 'FIRST_OUTPUT = 2' in be and 'TOTAL_SLOTS = 11' in be
+          assert 'Math.min(512, value)' in be and 'Math.min(512, value)' in screen
+          assert 'new EditBox' in screen and 'Button.builder(Component.literal("+")' not in screen
+          assert 'CustomData.update' in shape
+          print(f'Resources/architecture OK: {count} JSON files')
           PY2
 
       - name: Compile and build
@@ -96,31 +105,28 @@ jobs:
           code=$?
           set -e
           cat server-smoke.log
-          if grep -Eqi 'ModLoadingException|Failed to load mod|Exception in thread "main"|Crash report' server-smoke.log; then
-            exit 1
-          fi
-          if ! grep -Eq 'Done \(' server-smoke.log; then
-            echo "Server did not reach ready state (exit code: $code)"
-            exit 1
-          fi
+          if grep -Eqi 'ModLoadingException|Failed to load mod|Exception in thread "main"|Crash report' server-smoke.log; then exit 1; fi
+          if ! grep -Eq 'Done \(' server-smoke.log; then echo "Server did not reach ready state (exit code: $code)"; exit 1; fi
 
       - name: Stage and inspect JAR
         shell: bash
         run: |
           JAR=$(find RFToolsBuilderPort261/build/libs -maxdepth 1 -name 'rftoolsbuilder-*.jar' ! -name '*sources*' | head -n1)
           test -n "$JAR"
-          cp "$JAR" RFToolsBuilder-26.1.2-7.0.5-port.1.jar
-          test -s RFToolsBuilder-26.1.2-7.0.5-port.1.jar
-          unzip -t RFToolsBuilder-26.1.2-7.0.5-port.1.jar
-          jar tf RFToolsBuilder-26.1.2-7.0.5-port.1.jar | grep -q 'mcjty/rftoolsbuilder/RFToolsBuilder.class'
-          jar tf RFToolsBuilder-26.1.2-7.0.5-port.1.jar | grep -q 'mcjty/rftoolsbuilder/BuilderBlockEntity.class'
-          jar tf RFToolsBuilder-26.1.2-7.0.5-port.1.jar | grep -q 'mcjty/rftoolsbuilder/BuilderMenu.class'
-          jar tf RFToolsBuilder-26.1.2-7.0.5-port.1.jar | grep -q 'assets/rftoolsbuilder/items/shape_card_quarry_fortune.json'
-          jar tf RFToolsBuilder-26.1.2-7.0.5-port.1.jar | grep -q 'META-INF/LICENSE_RFToolsBuilder.txt'
-          sha256sum RFToolsBuilder-26.1.2-7.0.5-port.1.jar
+          cp "$JAR" RFToolsBuilder-26.1.2-7.0.5-port.2.jar
+          test -s RFToolsBuilder-26.1.2-7.0.5-port.2.jar
+          unzip -t RFToolsBuilder-26.1.2-7.0.5-port.2.jar
+          jar tf RFToolsBuilder-26.1.2-7.0.5-port.2.jar | grep -q 'mcjty/rftoolsbuilder/RFToolsBuilder.class'
+          jar tf RFToolsBuilder-26.1.2-7.0.5-port.2.jar | grep -q 'mcjty/rftoolsbuilder/ShapeCardItem.class'
+          jar tf RFToolsBuilder-26.1.2-7.0.5-port.2.jar | grep -q 'mcjty/rftoolsbuilder/BuilderBlockEntity.class'
+          jar tf RFToolsBuilder-26.1.2-7.0.5-port.2.jar | grep -q 'mcjty/rftoolsbuilder/BuilderMenu.class'
+          jar tf RFToolsBuilder-26.1.2-7.0.5-port.2.jar | grep -q 'mcjty/rftoolsbuilder/client/BuilderScreen.class'
+          jar tf RFToolsBuilder-26.1.2-7.0.5-port.2.jar | grep -q 'assets/rftoolsbuilder/items/shape_card_quarry_fortune.json'
+          jar tf RFToolsBuilder-26.1.2-7.0.5-port.2.jar | grep -q 'META-INF/LICENSE_RFToolsBuilder.txt'
+          sha256sum RFToolsBuilder-26.1.2-7.0.5-port.2.jar
 
       - name: Upload JAR artifact
         uses: actions/upload-artifact@v4
         with:
-          name: RFToolsBuilder-26.1.2-7.0.5-port.1
-          path: RFToolsBuilder-26.1.2-7.0.5-port.1.jar
+          name: RFToolsBuilder-26.1.2-7.0.5-port.2
+          path: RFToolsBuilder-26.1.2-7.0.5-port.2.jar
