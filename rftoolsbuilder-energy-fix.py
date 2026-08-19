@@ -1,5 +1,10 @@
 from pathlib import Path
 
+# Shape Card uses the exact CUSTOM_DATA pattern already proven by Cage Trap on 26.1.2.
+shape_fix = Path('rftoolsbuilder-shapecard-data-fix.py')
+if shape_fix.is_file():
+    exec(compile(shape_fix.read_text(encoding='utf-8'), str(shape_fix), 'exec'))
+
 p = Path('RFToolsBuilderPort261/src/main/java/mcjty/rftoolsbuilder/BuilderBlockEntity.java')
 s = p.read_text(encoding='utf-8')
 
