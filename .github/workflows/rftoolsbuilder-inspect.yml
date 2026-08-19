@@ -23,11 +23,15 @@ jobs:
       - name: Print relevant source
         shell: bash
         run: |
-          echo '=== FILE LIST ==='
-          find RFToolsBuilderPort261/src/main/java/mcjty/rftoolsbuilder -maxdepth 3 -type f | sort
+          echo '=== RFToolsBuilder.java ==='
+          sed -n '1,420p' RFToolsBuilderPort261/src/main/java/mcjty/rftoolsbuilder/RFToolsBuilder.java
+          echo '=== QuarryCardItem.java ==='
+          sed -n '1,320p' RFToolsBuilderPort261/src/main/java/mcjty/rftoolsbuilder/QuarryCardItem.java
+          echo '=== QuarryMode.java ==='
+          sed -n '1,240p' RFToolsBuilderPort261/src/main/java/mcjty/rftoolsbuilder/QuarryMode.java
           echo '=== BuilderScreen.java ==='
           sed -n '1,360p' RFToolsBuilderPort261/src/main/java/mcjty/rftoolsbuilder/client/BuilderScreen.java
           echo '=== BuilderMenu.java ==='
           sed -n '1,360p' RFToolsBuilderPort261/src/main/java/mcjty/rftoolsbuilder/BuilderMenu.java
           echo '=== BuilderBlockEntity.java ==='
-          sed -n '1,520p' RFToolsBuilderPort261/src/main/java/mcjty/rftoolsbuilder/BuilderBlockEntity.java
+          sed -n '1,560p' RFToolsBuilderPort261/src/main/java/mcjty/rftoolsbuilder/BuilderBlockEntity.java
