@@ -3,6 +3,8 @@ name: Inspect Quantum Tools Source
 on:
   push:
     branches: [ 'agent/rftoolsbuilder-port-26.1.2' ]
+  pull_request:
+    branches: [ main ]
   workflow_dispatch:
 
 permissions:
@@ -46,5 +48,4 @@ jobs:
           echo '=== BUILDER BLOCK ==='
           sed -n '1,320p' RFToolsBuilderPort261/src/main/java/mcjty/rftoolsbuilder/BuilderBlock.java
           echo '=== MOD METADATA ==='
-          find RFToolsBuilderPort261/src/main/resources -maxdepth 3 -type f | sort | grep -E 'neoforge|mods|lang|item|block' | head -100
-          find RFToolsBuilderPort261/src/main/resources -type f \( -name '*.toml' -o -name '*.json' \) | head -50
+          find RFToolsBuilderPort261/src/main/resources -maxdepth 4 -type f | sort | head -160
