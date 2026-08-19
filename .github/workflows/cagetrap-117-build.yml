@@ -1,4 +1,4 @@
-name: Build Cage Trap 1.1.7
+name: Build Cage Trap 1.1.8
 
 on:
   push:
@@ -21,12 +21,13 @@ jobs:
         run: |
           base64 -d cagetrap-src-v4.b64 > cagetrap-src-v4.tar.xz
           tar -xJf cagetrap-src-v4.tar.xz
-      - name: Apply Cage Trap 1.1.7
+      - name: Apply Cage Trap 1.1.8
         run: |
           python3 cagetrap-basepatch.py
           python3 cagetrap-115.py
           python3 cagetrap-116.py
           python3 cagetrap-117.py
+          python3 cagetrap-118.py
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
@@ -34,11 +35,11 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '9.2.1'
-      - name: Validate 1.1.7 architecture
+      - name: Validate 1.1.8 architecture
         working-directory: CageTrapProjectV4
         run: |
           python3 - <<'PY'
-          import pathlib, json, struct
+          import pathlib, json
           root=pathlib.Path('src/main/resources')
           for p in root.rglob('*.json'): json.loads(p.read_text(encoding='utf-8'))
           for p in root.rglob('*.png'):
@@ -51,11 +52,14 @@ jobs:
           be=(src/'CageTrapBlockEntity.java').read_text()
           assert 'properties.stacksTo(64)' in main
           assert 'DataComponents.MAX_STACK_SIZE, 1' in item
-          assert 'RegisterItemDecorationsEvent' in client
+          assert 'modBus.addListener(CageTrapClient::registerItemDecorations)' in client
+          assert 'modBus.addListener(CageTrapClient::registerRenderers)' in client
           assert 'renderEntityInInventoryFollowsAngle' in deco
+          assert 'int x0 = xOffset + 9' in deco and 'int y1 = yOffset + 7' in deco
+          assert 'return true;' in deco
           assert 'worldPosition.getY() + 0.125D' in be
-          assert "version = '1.1.7'" in pathlib.Path('build.gradle').read_text()
-          print('Cage Trap 1.1.7 architecture OK')
+          assert "version = '1.1.8'" in pathlib.Path('build.gradle').read_text()
+          print('Cage Trap 1.1.8 architecture OK')
           PY
       - name: Compile and build
         working-directory: CageTrapProjectV4
@@ -76,11 +80,11 @@ jobs:
       - name: Stage and inspect JAR
         shell: bash
         run: |
-          cp CageTrapProjectV4/build/libs/cagetrap-1.1.7.jar CageTrap-1.1.7-NeoForge-26.1.2.jar
-          unzip -t CageTrap-1.1.7-NeoForge-26.1.2.jar
-          jar tf CageTrap-1.1.7-NeoForge-26.1.2.jar | grep -q 'com/jeancedraz/cagetrap/client/CageTrapItemDecorator.class'
-          sha256sum CageTrap-1.1.7-NeoForge-26.1.2.jar
+          cp CageTrapProjectV4/build/libs/cagetrap-1.1.8.jar CageTrap-1.1.8-NeoForge-26.1.2.jar
+          unzip -t CageTrap-1.1.8-NeoForge-26.1.2.jar
+          jar tf CageTrap-1.1.8-NeoForge-26.1.2.jar | grep -q 'com/jeancedraz/cagetrap/client/CageTrapItemDecorator.class'
+          sha256sum CageTrap-1.1.8-NeoForge-26.1.2.jar
       - uses: actions/upload-artifact@v4
         with:
-          name: CageTrap-1.1.7-NeoForge-26.1.2
-          path: CageTrap-1.1.7-NeoForge-26.1.2.jar
+          name: CageTrap-1.1.8-NeoForge-26.1.2
+          path: CageTrap-1.1.8-NeoForge-26.1.2.jar
