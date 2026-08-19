@@ -1,4 +1,4 @@
-name: Build Quantum Tools 3.0.4
+name: Build Quantum Tools 3.0.5
 
 on:
   push:
@@ -41,7 +41,7 @@ jobs:
           p.write_text(p.read_text().replace('Capabilities.EnergyStorage.BLOCK', 'Capabilities.Energy.BLOCK'))
           PY
 
-      - name: Apply Quantum Tools 3.0.4
+      - name: Apply Quantum Tools 3.0.5
         run: |
           python3 rftoolsbuilder-ui-v2.py
           python3 rftoolsbuilder-energy-fix.py
@@ -55,6 +55,7 @@ jobs:
           python3 quantumtools-3.0.3-fix.py
           python3 quantumtools-3.0.3-polish.py
           python3 quantumtools-3.0.4-fix.py
+          python3 quantumtools-3.0.5-fix.py
 
       - uses: actions/setup-java@v5
         with:
@@ -65,7 +66,7 @@ jobs:
         with:
           gradle-version: '9.2.1'
 
-      - name: Validate 3.0.4 architecture
+      - name: Validate 3.0.5 architecture
         working-directory: RFToolsBuilderPort261
         run: |
           python3 - <<'PY'
@@ -79,25 +80,24 @@ jobs:
               assert struct.unpack('>II',b[16:24])==(16,16)
           src=pathlib.Path('src/main/java/mcjty/rftoolsbuilder')
           be=(src/'BuilderBlockEntity.java').read_text()
-          menu=(src/'BuilderMenu.java').read_text()
+          menu=(src/'BuilderMenu.java').read_text().replace(' ', '')
+          q=(src/'QuarryCardItem.java').read_text()
+          fm=(src/'QuarryFilterMenu.java').read_text().replace(' ', '')
           screen=(src/'client/BuilderScreen.java').read_text()
-          fmenu=(src/'QuarryFilterMenu.java').read_text()
           filt=(src/'client/QuarryFilterScreen.java').read_text()
           holo=(src/'client/QuantumBuilderBlockEntityRenderer.java').read_text()
           assert 'scanChunkIndex' in be and 'cursorInChunk' in be
           assert 'ChunkStatus.FULL' in be and 'positionForChunkCursor' in be
-          assert 'Math.min(16_384' in be
-          assert 'CONFIG_BIAS = 16_384' in menu and 'machineSlots = 2' in menu
-          assert 'FIRST_OUTPUT' not in menu
-          assert 'drawEnergyBar' in screen and 'CYAN_BRIGHT' in screen
-          assert 'drawCardSlot' in screen and 'CARD_BORDER' in screen
-          assert 'int[] ys = {80, 80, 80, 107, 107, 107}' in screen
-          assert 'int y = 217' in fmenu and '275' in fmenu
-          assert 'super(menu, inventory, title, 256, 304)' in filt
-          assert 'VISIBLE_ROWS = 5' in filt and 'drawInventorySlot' in filt
+          assert 'STATUS_PAUSED = 6' in be
+          assert 'primaryAction()' in be and 'stopWork()' in be
+          assert 'SLOT_SHAPE,84,42' in menu and 'SLOT_QUARRY,120,42' in menu
+          assert 'TOGGLE_RULE_BASE=300' in fm
+          assert 'entryBlacklist' in q and 'whitelistCount' in q and 'matchedBlacklist' in q
+          assert 'RULE: BLACK' in filt and 'RULE: WHITE' in filt
+          assert 'Component.literal("MINER")' in screen
           assert 'Axis.ZP.rotationDegrees(180.0F)' in holo
-          assert "version = '3.0.4'" in pathlib.Path('build.gradle').read_text()
-          print('Quantum Tools 3.0.4 architecture OK')
+          assert "version = '3.0.5'" in pathlib.Path('build.gradle').read_text()
+          print('Quantum Tools 3.0.5 architecture OK')
           PY
 
       - name: Compile and build
@@ -123,13 +123,13 @@ jobs:
         run: |
           JAR=$(find RFToolsBuilderPort261/build/libs -maxdepth 1 -name '*.jar' ! -name '*sources*' | head -n1)
           test -n "$JAR"
-          cp "$JAR" QuantumTools-3.0.4-NeoForge-26.1.2.jar
-          unzip -t QuantumTools-3.0.4-NeoForge-26.1.2.jar
-          jar tf QuantumTools-3.0.4-NeoForge-26.1.2.jar | grep -q 'mcjty/rftoolsbuilder/client/QuantumBuilderBlockEntityRenderer.class'
-          jar tf QuantumTools-3.0.4-NeoForge-26.1.2.jar | grep -q 'mcjty/rftoolsbuilder/client/QuarryFilterScreen.class'
-          sha256sum QuantumTools-3.0.4-NeoForge-26.1.2.jar
+          cp "$JAR" QuantumTools-3.0.5-NeoForge-26.1.2.jar
+          unzip -t QuantumTools-3.0.5-NeoForge-26.1.2.jar
+          jar tf QuantumTools-3.0.5-NeoForge-26.1.2.jar | grep -q 'mcjty/rftoolsbuilder/client/QuantumBuilderBlockEntityRenderer.class'
+          jar tf QuantumTools-3.0.5-NeoForge-26.1.2.jar | grep -q 'mcjty/rftoolsbuilder/client/QuarryFilterScreen.class'
+          sha256sum QuantumTools-3.0.5-NeoForge-26.1.2.jar
 
       - uses: actions/upload-artifact@v4
         with:
-          name: QuantumTools-3.0.4-NeoForge-26.1.2
-          path: QuantumTools-3.0.4-NeoForge-26.1.2.jar
+          name: QuantumTools-3.0.5-NeoForge-26.1.2
+          path: QuantumTools-3.0.5-NeoForge-26.1.2.jar
