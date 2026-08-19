@@ -1,0 +1,127 @@
+name: Build Quantum Tools 3.0
+
+on:
+  push:
+    branches: [ 'agent/rftoolsbuilder-port-26.1.2' ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Reconstruct source
+        shell: bash
+        run: |
+          base64 -d rftoolsbuilder-port261-src.b64 > rftoolsbuilder-port261-src.tar.xz
+          xz -t rftoolsbuilder-port261-src.tar.xz
+          tar -xJf rftoolsbuilder-port261-src.tar.xz
+          test -f RFToolsBuilderPort261/build.gradle
+
+      - name: Apply 26.1.2 base compatibility
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('RFToolsBuilderPort261/src/main/java/mcjty/rftoolsbuilder/client/BuilderScreen.java')
+          s=p.read_text()
+          s=s.replace('import net.minecraft.client.gui.GuiGraphicsExtractor;\n', 'import net.minecraft.client.Minecraft;\nimport net.minecraft.client.gui.GuiGraphicsExtractor;\n')
+          s=s.replace('import net.minecraft.client.gui.screens.Screen;\n', '')
+          s=s.replace('        super(menu, inventory, title);\n        this.imageWidth = 176;\n        this.imageHeight = 218;\n', '        super(menu, inventory, title, 176, 218);\n')
+          s=s.replace('        boolean fast = Screen.hasShiftDown();', '        boolean fast = Minecraft.getInstance().hasShiftDown();')
+          s=s.replace('    protected void extractBackground(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {', '    public void extractBackground(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {')
+          p.write_text(s)
+          p=Path('RFToolsBuilderPort261/src/main/java/mcjty/rftoolsbuilder/RFToolsBuilder.java')
+          p.write_text(p.read_text().replace('Capabilities.EnergyStorage.BLOCK', 'Capabilities.Energy.BLOCK'))
+          PY
+
+      - name: Apply stable Builder port.2 base
+        run: |
+          python3 rftoolsbuilder-ui-v2.py
+          python3 rftoolsbuilder-energy-fix.py
+
+      - name: Apply Quantum Tools changes
+        run: |
+          python3 quantum-filter-core.py
+          python3 quantum-filter-client.py
+          python3 quantumtools-assets.py
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.2.1'
+
+      - name: Validate Quantum architecture/resources
+        working-directory: RFToolsBuilderPort261
+        run: |
+          python3 - <<'PY'
+          import json, pathlib, struct
+          root=pathlib.Path('src/main/resources')
+          for p in root.rglob('*.json'): json.loads(p.read_text(encoding='utf-8'))
+          for name in ['shapecarditem.png','shapecardquarryitem.png','shapecardcquarryitem.png','shapecardfortuneitem.png','shapecardcfortuneitem.png','shapecardsilkitem.png','shapecardcsilkitem.png']:
+              p=root/'assets/rftoolsbuilder/textures/item'/name
+              b=p.read_bytes(); assert b[:8]==b'\x89PNG\r\n\x1a\n', p
+              assert struct.unpack('>II', b[16:24])==(16,16), p
+          src=pathlib.Path('src/main/java/mcjty/rftoolsbuilder')
+          assert (src/'QuarryFilterMenu.java').is_file()
+          assert (src/'FilterTagPayload.java').is_file()
+          assert (src/'client/QuarryFilterScreen.java').is_file()
+          q=(src/'QuarryCardItem.java').read_text()
+          be=(src/'BuilderBlockEntity.java').read_text()
+          main=(src/'RFToolsBuilder.java').read_text()
+          assert 'MAX_FILTER_ENTRIES = 18' in q
+          assert 'allowsBlock' in q
+          assert 'QuarryCardItem.allowsBlock' in be
+          assert 'QUARRY_FILTER_MENU' in main
+          assert 'playToServer' in main
+          assert 'Quantum Tools' in (root/'META-INF/neoforge.mods.toml').read_text()
+          print('Quantum architecture/resources OK')
+          PY
+
+      - name: Compile and build
+        working-directory: RFToolsBuilderPort261
+        run: gradle clean build --no-daemon --stacktrace
+
+      - name: Server smoke test
+        working-directory: RFToolsBuilderPort261
+        shell: bash
+        run: |
+          mkdir -p run
+          printf 'eula=true\n' > run/eula.txt
+          set +e
+          timeout 90s gradle runServer --no-daemon --stacktrace > server-smoke.log 2>&1
+          code=$?
+          set -e
+          cat server-smoke.log
+          if grep -Eqi 'ModLoadingException|Failed to load mod|Exception in thread "main"|Crash report' server-smoke.log; then exit 1; fi
+          if ! grep -Eq 'Done \(' server-smoke.log; then echo "Server did not reach ready state (exit code: $code)"; exit 1; fi
+
+      - name: Stage and inspect JAR
+        shell: bash
+        run: |
+          JAR=$(find RFToolsBuilderPort261/build/libs -maxdepth 1 -name '*.jar' ! -name '*sources*' | head -n1)
+          test -n "$JAR"
+          cp "$JAR" QuantumTools-3.0.0-NeoForge-26.1.2.jar
+          unzip -t QuantumTools-3.0.0-NeoForge-26.1.2.jar
+          jar tf QuantumTools-3.0.0-NeoForge-26.1.2.jar | grep -q 'mcjty/rftoolsbuilder/QuarryFilterMenu.class'
+          jar tf QuantumTools-3.0.0-NeoForge-26.1.2.jar | grep -q 'mcjty/rftoolsbuilder/FilterTagPayload.class'
+          jar tf QuantumTools-3.0.0-NeoForge-26.1.2.jar | grep -q 'mcjty/rftoolsbuilder/client/QuarryFilterScreen.class'
+          jar tf QuantumTools-3.0.0-NeoForge-26.1.2.jar | grep -q 'assets/rftoolsbuilder/textures/item/shapecardfortuneitem.png'
+          unzip -p QuantumTools-3.0.0-NeoForge-26.1.2.jar META-INF/neoforge.mods.toml | grep -q 'Quantum Tools'
+          sha256sum QuantumTools-3.0.0-NeoForge-26.1.2.jar
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: QuantumTools-3.0.0-NeoForge-26.1.2
+          path: QuantumTools-3.0.0-NeoForge-26.1.2.jar
