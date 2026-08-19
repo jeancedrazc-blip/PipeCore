@@ -3,8 +3,6 @@ name: Inspect Quantum Tools Source
 on:
   push:
     branches: [ 'agent/rftoolsbuilder-port-26.1.2' ]
-  pull_request:
-    branches: [ main ]
   workflow_dispatch:
 
 permissions:
@@ -15,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Reconstruct and patch
+      - name: Reconstruct current Quantum source
         shell: bash
         run: |
           base64 -d rftoolsbuilder-port261-src.b64 > rftoolsbuilder-port261-src.tar.xz
@@ -35,6 +33,23 @@ jobs:
           PYFIX
           python3 rftoolsbuilder-ui-v2.py
           python3 rftoolsbuilder-energy-fix.py
+          python3 quantum-filter-core.py
+          python3 quantum-filter-client.py
+          python3 quantum-api-fix.py
+          python3 quantumtools-assets.py
+          python3 quantum-ui-polish.py
+          python3 quantumtools-3.0.1-fix.py
+          python3 quantumtools-3.0.2-fix.py
+          echo '=== BUILDER BE ==='
+          sed -n '1,760p' RFToolsBuilderPort261/src/main/java/mcjty/rftoolsbuilder/BuilderBlockEntity.java
+          echo '=== BUILDER MENU ==='
+          sed -n '1,360p' RFToolsBuilderPort261/src/main/java/mcjty/rftoolsbuilder/BuilderMenu.java
+          echo '=== BUILDER SCREEN ==='
+          sed -n '1,520p' RFToolsBuilderPort261/src/main/java/mcjty/rftoolsbuilder/client/BuilderScreen.java
+          echo '=== FILTER SCREEN ==='
+          sed -n '1,520p' RFToolsBuilderPort261/src/main/java/mcjty/rftoolsbuilder/client/QuarryFilterScreen.java
+          echo '=== SHAPE CARD ==='
+          sed -n '1,300p' RFToolsBuilderPort261/src/main/java/mcjty/rftoolsbuilder/ShapeCardItem.java
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
@@ -45,27 +60,20 @@ jobs:
       - name: Create Minecraft artifacts
         working-directory: RFToolsBuilderPort261
         run: gradle createMinecraftArtifacts --no-daemon
-      - name: Probe exact APIs
+      - name: Probe chunk/render APIs
         shell: bash
         run: |
           JAR=''
           while IFS= read -r f; do
-            if jar tf "$f" 2>/dev/null | grep -q '^net/minecraft/world/item/ItemStack.class$'; then JAR="$f"; break; fi
+            if jar tf "$f" 2>/dev/null | grep -q '^net/minecraft/server/level/ServerLevel.class$'; then JAR="$f"; break; fi
           done < <(find RFToolsBuilderPort261/build ~/.gradle/caches -type f -name '*.jar' 2>/dev/null)
           echo "MINECRAFT_JAR=$JAR"
           test -n "$JAR"
-          echo '=== ItemStack ==='
-          javap -classpath "$JAR" net.minecraft.world.item.ItemStack | grep -E 'CODEC|MAP_CODEC|typeHolder|getItemHolder|getComponents|Damage|same|matches|ItemStack\(' || true
-          echo '=== AbstractContainerMenu ==='
-          javap -classpath "$JAR" net.minecraft.world.inventory.AbstractContainerMenu | grep -E 'clicked|quickMove|ContainerInput|ClickType' || true
-          echo '=== ContainerInput ==='
-          javap -classpath "$JAR" net.minecraft.world.inventory.ContainerInput || true
-          echo '=== ClickType ==='
-          javap -classpath "$JAR" net.minecraft.world.inventory.ClickType || true
-          echo '=== TagValueOutput ==='
-          javap -classpath "$JAR" net.minecraft.world.level.storage.TagValueOutput | head -120 || true
-          echo '=== TagValueInput ==='
-          javap -classpath "$JAR" net.minecraft.world.level.storage.TagValueInput | head -120 || true
-          echo '=== Holder Item tags / BuiltInRegistries ==='
-          javap -classpath "$JAR" net.minecraft.core.Holder | grep -E 'tags|is\(' || true
-          javap -classpath "$JAR" net.minecraft.core.registries.BuiltInRegistries | head -40 || true
+          echo '=== ServerLevel chunk methods ==='
+          javap -classpath "$JAR" net.minecraft.server.level.ServerLevel | grep -E 'getChunk|addRegionTicket|removeRegionTicket|setChunkForced|ChunkPos' || true
+          echo '=== ServerChunkCache ==='
+          javap -classpath "$JAR" net.minecraft.server.level.ServerChunkCache | grep -E 'addRegionTicket|removeRegionTicket|getChunk|updateChunkForced' || true
+          echo '=== TicketType ==='
+          javap -classpath "$JAR" net.minecraft.server.level.TicketType | head -120 || true
+          echo '=== LevelChunk ==='
+          javap -classpath "$JAR" net.minecraft.world.level.chunk.LevelChunk | head -80 || true
