@@ -3,6 +3,8 @@ name: Inspect Quantum Tools Source
 on:
   push:
     branches: [ 'agent/rftoolsbuilder-port-26.1.2' ]
+  pull_request:
+    branches: [ main ]
   workflow_dispatch:
 
 permissions:
