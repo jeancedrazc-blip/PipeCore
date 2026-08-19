@@ -44,6 +44,10 @@ jobs:
           p.write_text(p.read_text().replace('Capabilities.EnergyStorage.BLOCK', 'Capabilities.Energy.BLOCK'))
           PYFIX
 
+      - name: Migrate energy API
+        shell: bash
+        run: python3 rftoolsbuilder-energy-fix.py
+
       - name: Set up Java 25
         uses: actions/setup-java@v5
         with:
