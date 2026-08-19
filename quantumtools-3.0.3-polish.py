@@ -26,4 +26,12 @@ s = s.replace('int sx = x + 45 + col * 18, sy = y + 146 + row * 18;',
 s = s.replace('int sx = x + 45 + col * 18, sy = y + 204;',
               'int sx = x + 46 + col * 18, sy = y + 205;')
 p.write_text(s, encoding='utf-8')
-print('Quantum Tools 3.0.3 final UI spacing polish applied')
+
+# Minecraft 26.1 exposes ChunkPos coordinates through accessors, not public fields.
+p = root/'src/main/java/mcjty/rftoolsbuilder/BuilderBlockEntity.java'
+s = p.read_text(encoding='utf-8')
+s = s.replace('getChunk(chunkPos.x, chunkPos.z, ChunkStatus.FULL, true)',
+              'getChunk(chunkPos.x(), chunkPos.z(), ChunkStatus.FULL, true)')
+p.write_text(s, encoding='utf-8')
+
+print('Quantum Tools 3.0.3 final UI/API polish applied')
