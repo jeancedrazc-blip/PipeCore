@@ -51,6 +51,7 @@ jobs:
         run: |
           python3 quantum-filter-core.py
           python3 quantum-filter-client.py
+          python3 quantum-api-fix.py
           python3 quantumtools-assets.py
 
       - uses: actions/setup-java@v5
@@ -80,7 +81,11 @@ jobs:
           q=(src/'QuarryCardItem.java').read_text()
           be=(src/'BuilderBlockEntity.java').read_text()
           main=(src/'RFToolsBuilder.java').read_text()
+          menu=(src/'QuarryFilterMenu.java').read_text()
           assert 'MAX_FILTER_ENTRIES = 18' in q
+          assert 'TagValueOutput.createWithContext' in q and 'TagValueInput.create' in q
+          assert 'typeHolder().tags()' in q
+          assert 'ContainerInput.QUICK_MOVE' in menu
           assert 'allowsBlock' in q
           assert 'QuarryCardItem.allowsBlock' in be
           assert 'QUARRY_FILTER_MENU' in main
