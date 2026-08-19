@@ -3,6 +3,8 @@ name: Build Cage Trap
 on:
   push:
     branches: [ 'agent/cagetrap-v1' ]
+  pull_request:
+    branches: [ main ]
   workflow_dispatch:
 
 permissions:
@@ -31,72 +33,54 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
           import json, re
-
           root = Path('CageTrapProjectV4')
           java = root/'src/main/java/com/jeancedraz/cagetrap'
           res = root/'src/main/resources'
 
-          # Version
           p = root/'build.gradle'
           s = p.read_text()
           s2, n = re.subn(r"(?m)^version\s*=\s*['\"]1\.1\.0['\"]", "version = '1.1.2'", s, count=1)
-          assert n == 1, 'version line not found'
+          assert n == 1
           p.write_text(s2)
 
-          # Preserve the easier mining behavior from 1.1.1.
           p = java/'CageTrap.java'
           s = p.read_text()
           s2, n = re.subn(r'\.strength\(3\.5F,\s*1200(?:\.0)?F\)', '.strength(2.0F, 1200.0F)', s, count=1)
-          assert n == 1, 'strength pattern not found'
+          assert n == 1
           p.write_text(s2)
 
           tag = res/'data/minecraft/tags/block/mineable/pickaxe.json'
           tag.parent.mkdir(parents=True, exist_ok=True)
           tag.write_text(json.dumps({'replace': False, 'values': ['cagetrap:cage_trap']}, indent=2) + '\n')
 
-          # Inventory item must always look CLOSED. Only the placed/armed block is open.
-          item_model = res/'assets/cagetrap/models/item/cage_trap.json'
-          item_model.write_text(json.dumps({'parent': 'cagetrap:block/cage_trap_closed'}, indent=2) + '\n')
+          (res/'assets/cagetrap/models/item/cage_trap.json').write_text(json.dumps({'parent': 'cagetrap:block/cage_trap_closed'}, indent=2) + '\n')
+          (res/'assets/cagetrap/models/item/cage_trap_filled.json').write_text(json.dumps({'parent': 'cagetrap:block/cage_trap_closed'}, indent=2) + '\n')
 
-          # Captured item keeps its own model id, but also remains closed.
-          filled_model = res/'assets/cagetrap/models/item/cage_trap_filled.json'
-          filled_model.write_text(json.dumps({'parent': 'cagetrap:block/cage_trap_closed'}, indent=2) + '\n')
-
-          # BlockEntity: short capture lock after release so the spawned mob cannot be
-          # swallowed again by entityInside in the same/next ticks.
           p = java/'CageTrapBlockEntity.java'
           s = p.read_text()
           anchor = '    private transient Entity displayEntity;'
-          assert anchor in s, 'displayEntity field not found'
+          assert anchor in s
           s = s.replace(anchor, anchor + '\n    private long captureBlockedUntil = 0L;', 1)
-
           sig = '    public boolean capture(Mob mob) {'
-          assert sig in s, 'capture method not found'
+          assert sig in s
           s = s.replace(sig, sig + '\n        if (level != null && level.getGameTime() < captureBlockedUntil) {\n            return false;\n        }', 1)
 
           start = s.index('    public boolean release() {')
           end = s.index('    public Entity getDisplayEntity()', start)
           r = s[start:end]
-
-          # Spawn farther from the trap. Adjacent blocks can still overlap wide mobs.
           r = r.replace('worldPosition.above(),', 'worldPosition.above(2),', 1)
           r = r.replace('worldPosition.north()', 'worldPosition.north(2)')
           r = r.replace('worldPosition.south()', 'worldPosition.south(2)')
           r = r.replace('worldPosition.east()', 'worldPosition.east(2)')
           r = r.replace('worldPosition.west()', 'worldPosition.west(2)')
-
           needle = 'if (serverLevel.addFreshEntity(entity)) {'
-          assert needle in r, 'addFreshEntity call not found'
+          assert needle in r
           r = r.replace(needle, 'captureBlockedUntil = serverLevel.getGameTime() + 40L;\n            ' + needle, 1)
           s = s[:start] + r + s[end:]
           p.write_text(s)
 
-          # Signature/version marker.
           sigfile = res/'META-INF/JEAN_CEDRAZ.SIGNATURE'
-          sigtxt = sigfile.read_text()
-          sigtxt = sigtxt.replace('Build line: 1.1.0', 'Build line: 1.1.2')
-          sigfile.write_text(sigtxt)
-
+          sigfile.write_text(sigfile.read_text().replace('Build line: 1.1.0', 'Build line: 1.1.2'))
           print('1.1.2 fixes applied')
           PY
 
