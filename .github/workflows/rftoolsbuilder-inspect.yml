@@ -1,0 +1,31 @@
+name: Inspect RFTools Builder Source
+
+on:
+  push:
+    branches: [ 'agent/rftoolsbuilder-port-26.1.2' ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Reconstruct source
+        shell: bash
+        run: |
+          base64 -d rftoolsbuilder-port261-src.b64 > rftoolsbuilder-port261-src.tar.xz
+          tar -xJf rftoolsbuilder-port261-src.tar.xz
+      - name: Print relevant source
+        shell: bash
+        run: |
+          echo '=== FILE LIST ==='
+          find RFToolsBuilderPort261/src/main/java/mcjty/rftoolsbuilder -maxdepth 3 -type f | sort
+          echo '=== BuilderScreen.java ==='
+          sed -n '1,360p' RFToolsBuilderPort261/src/main/java/mcjty/rftoolsbuilder/client/BuilderScreen.java
+          echo '=== BuilderMenu.java ==='
+          sed -n '1,360p' RFToolsBuilderPort261/src/main/java/mcjty/rftoolsbuilder/BuilderMenu.java
+          echo '=== BuilderBlockEntity.java ==='
+          sed -n '1,520p' RFToolsBuilderPort261/src/main/java/mcjty/rftoolsbuilder/BuilderBlockEntity.java
