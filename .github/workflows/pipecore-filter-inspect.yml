@@ -3,6 +3,8 @@ name: Inspect Pipe Core Filter Source
 on:
   push:
     branches: [ 'agent/pipecore-filter-rework' ]
+  pull_request:
+    branches: [ main ]
   workflow_dispatch:
 
 permissions:
