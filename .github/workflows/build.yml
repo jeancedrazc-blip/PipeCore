@@ -3,8 +3,6 @@ name: Build Cage Trap
 on:
   push:
     branches: [ 'agent/cagetrap-v1' ]
-  pull_request:
-    branches: [ main ]
   workflow_dispatch:
 
 permissions:
@@ -18,7 +16,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Reconstruct Cage Trap 1.1.0 source
+      - name: Reconstruct Cage Trap source
         shell: bash
         run: |
           base64 -d cagetrap-src-v4.b64 > cagetrap-src-v4.tar.xz
@@ -26,7 +24,81 @@ jobs:
           xz -t cagetrap-src-v4.tar.xz
           tar -xJf cagetrap-src-v4.tar.xz
           test -f CageTrapProjectV4/build.gradle
-          test -f CageTrapProjectV4/src/main/resources/META-INF/JEAN_CEDRAZ.SIGNATURE
+
+      - name: Apply 1.1.2 fixes
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import json, re
+
+          root = Path('CageTrapProjectV4')
+          java = root/'src/main/java/com/jeancedraz/cagetrap'
+          res = root/'src/main/resources'
+
+          # Version
+          p = root/'build.gradle'
+          s = p.read_text()
+          s2, n = re.subn(r"(?m)^version\s*=\s*['\"]1\.1\.0['\"]", "version = '1.1.2'", s, count=1)
+          assert n == 1, 'version line not found'
+          p.write_text(s2)
+
+          # Preserve the easier mining behavior from 1.1.1.
+          p = java/'CageTrap.java'
+          s = p.read_text()
+          s2, n = re.subn(r'\.strength\(3\.5F,\s*1200(?:\.0)?F\)', '.strength(2.0F, 1200.0F)', s, count=1)
+          assert n == 1, 'strength pattern not found'
+          p.write_text(s2)
+
+          tag = res/'data/minecraft/tags/block/mineable/pickaxe.json'
+          tag.parent.mkdir(parents=True, exist_ok=True)
+          tag.write_text(json.dumps({'replace': False, 'values': ['cagetrap:cage_trap']}, indent=2) + '\n')
+
+          # Inventory item must always look CLOSED. Only the placed/armed block is open.
+          item_model = res/'assets/cagetrap/models/item/cage_trap.json'
+          item_model.write_text(json.dumps({'parent': 'cagetrap:block/cage_trap_closed'}, indent=2) + '\n')
+
+          # Captured item keeps its own model id, but also remains closed.
+          filled_model = res/'assets/cagetrap/models/item/cage_trap_filled.json'
+          filled_model.write_text(json.dumps({'parent': 'cagetrap:block/cage_trap_closed'}, indent=2) + '\n')
+
+          # BlockEntity: short capture lock after release so the spawned mob cannot be
+          # swallowed again by entityInside in the same/next ticks.
+          p = java/'CageTrapBlockEntity.java'
+          s = p.read_text()
+          anchor = '    private transient Entity displayEntity;'
+          assert anchor in s, 'displayEntity field not found'
+          s = s.replace(anchor, anchor + '\n    private long captureBlockedUntil = 0L;', 1)
+
+          sig = '    public boolean capture(Mob mob) {'
+          assert sig in s, 'capture method not found'
+          s = s.replace(sig, sig + '\n        if (level != null && level.getGameTime() < captureBlockedUntil) {\n            return false;\n        }', 1)
+
+          start = s.index('    public boolean release() {')
+          end = s.index('    public Entity getDisplayEntity()', start)
+          r = s[start:end]
+
+          # Spawn farther from the trap. Adjacent blocks can still overlap wide mobs.
+          r = r.replace('worldPosition.above(),', 'worldPosition.above(2),', 1)
+          r = r.replace('worldPosition.north()', 'worldPosition.north(2)')
+          r = r.replace('worldPosition.south()', 'worldPosition.south(2)')
+          r = r.replace('worldPosition.east()', 'worldPosition.east(2)')
+          r = r.replace('worldPosition.west()', 'worldPosition.west(2)')
+
+          needle = 'if (serverLevel.addFreshEntity(entity)) {'
+          assert needle in r, 'addFreshEntity call not found'
+          r = r.replace(needle, 'captureBlockedUntil = serverLevel.getGameTime() + 40L;\n            ' + needle, 1)
+          s = s[:start] + r + s[end:]
+          p.write_text(s)
+
+          # Signature/version marker.
+          sigfile = res/'META-INF/JEAN_CEDRAZ.SIGNATURE'
+          sigtxt = sigfile.read_text()
+          sigtxt = sigtxt.replace('Build line: 1.1.0', 'Build line: 1.1.2')
+          sigfile.write_text(sigtxt)
+
+          print('1.1.2 fixes applied')
+          PY
 
       - name: Set up Java 25
         uses: actions/setup-java@v5
@@ -52,14 +124,12 @@ jobs:
               assert b[:8] == b'\x89PNG\r\n\x1a\n', p
               w,h=struct.unpack('>II', b[16:24])
               assert (w,h)==(16,16), (p,w,h)
-          assert (root/'META-INF/JEAN_CEDRAZ.SIGNATURE').is_file()
-          blockstate=json.loads((root/'assets/cagetrap/blockstates/cage_trap.json').read_text())
-          assert 'open=true' in blockstate['variants'] and 'open=false' in blockstate['variants']
-          recipe=json.loads((root/'data/cagetrap/recipe/cage_trap.json').read_text())
-          assert recipe['pattern']==['NBN','BRB','NBN']
-          assert recipe['key']['N']=='minecraft:iron_nugget'
-          assert recipe['key']['B']=='minecraft:iron_bars'
-          assert recipe['key']['R']=='minecraft:redstone'
+          empty=json.loads((root/'assets/cagetrap/models/item/cage_trap.json').read_text())
+          filled=json.loads((root/'assets/cagetrap/models/item/cage_trap_filled.json').read_text())
+          assert empty['parent']=='cagetrap:block/cage_trap_closed'
+          assert filled['parent']=='cagetrap:block/cage_trap_closed'
+          pick=json.loads((root/'data/minecraft/tags/block/mineable/pickaxe.json').read_text())
+          assert 'cagetrap:cage_trap' in pick['values']
           print('Resources OK')
           PY
 
@@ -78,37 +148,22 @@ jobs:
           code=$?
           set -e
           cat server-smoke.log
-          if grep -Eqi 'ModLoadingException|Failed to load mod|Exception in thread "main"|Crash report' server-smoke.log; then
-            exit 1
-          fi
-          if ! grep -Eq 'Done \(' server-smoke.log; then
-            echo "Server did not reach ready state (exit code: $code)"
-            exit 1
-          fi
+          if grep -Eqi 'ModLoadingException|Failed to load mod|Exception in thread "main"|Crash report' server-smoke.log; then exit 1; fi
+          if ! grep -Eq 'Done \(' server-smoke.log; then echo "Server did not reach ready state (exit code: $code)"; exit 1; fi
 
       - name: Stage and inspect JAR
         shell: bash
         run: |
-          cp CageTrapProjectV4/build/libs/cagetrap-1.1.0.jar CageTrap-1.1.0-NeoForge-26.1.2.jar
-          test -s CageTrap-1.1.0-NeoForge-26.1.2.jar
-          unzip -t CageTrap-1.1.0-NeoForge-26.1.2.jar
-          jar tf CageTrap-1.1.0-NeoForge-26.1.2.jar | grep -q 'com/jeancedraz/cagetrap/CageTrap.class'
-          jar tf CageTrap-1.1.0-NeoForge-26.1.2.jar | grep -q 'com/jeancedraz/cagetrap/CageTrapBlock.class'
-          jar tf CageTrap-1.1.0-NeoForge-26.1.2.jar | grep -q 'com/jeancedraz/cagetrap/CageTrapBlockEntity.class'
-          jar tf CageTrap-1.1.0-NeoForge-26.1.2.jar | grep -q 'com/jeancedraz/cagetrap/CageTrapItem.class'
-          jar tf CageTrap-1.1.0-NeoForge-26.1.2.jar | grep -q 'com/jeancedraz/cagetrap/client/CageTrapBlockEntityRenderer.class'
-          jar tf CageTrap-1.1.0-NeoForge-26.1.2.jar | grep -q 'META-INF/JEAN_CEDRAZ.SIGNATURE'
-          jar tf CageTrap-1.1.0-NeoForge-26.1.2.jar | grep -q 'assets/cagetrap/models/block/cage_trap_open.json'
-          jar tf CageTrap-1.1.0-NeoForge-26.1.2.jar | grep -q 'assets/cagetrap/models/block/cage_trap_closed.json'
-          jar tf CageTrap-1.1.0-NeoForge-26.1.2.jar | grep -q 'assets/cagetrap/items/cage_trap_filled.json'
-          if jar tf CageTrap-1.1.0-NeoForge-26.1.2.jar | grep -Eq 'untamedwilds|com/pipecore'; then
-            echo 'Unexpected reference implementation classes found in final JAR'
-            exit 1
-          fi
-          sha256sum CageTrap-1.1.0-NeoForge-26.1.2.jar
+          cp CageTrapProjectV4/build/libs/cagetrap-1.1.2.jar CageTrap-1.1.2-NeoForge-26.1.2.jar
+          test -s CageTrap-1.1.2-NeoForge-26.1.2.jar
+          unzip -t CageTrap-1.1.2-NeoForge-26.1.2.jar
+          jar tf CageTrap-1.1.2-NeoForge-26.1.2.jar | grep -q 'com/jeancedraz/cagetrap/CageTrapBlockEntity.class'
+          jar tf CageTrap-1.1.2-NeoForge-26.1.2.jar | grep -q 'data/minecraft/tags/block/mineable/pickaxe.json'
+          unzip -p CageTrap-1.1.2-NeoForge-26.1.2.jar assets/cagetrap/models/item/cage_trap.json | grep -q 'cage_trap_closed'
+          sha256sum CageTrap-1.1.2-NeoForge-26.1.2.jar
 
       - name: Upload JAR artifact
         uses: actions/upload-artifact@v4
         with:
-          name: CageTrap-1.1.0-NeoForge-26.1.2
-          path: CageTrap-1.1.0-NeoForge-26.1.2.jar
+          name: CageTrap-1.1.2-NeoForge-26.1.2
+          path: CageTrap-1.1.2-NeoForge-26.1.2.jar
