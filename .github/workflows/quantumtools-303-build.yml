@@ -56,6 +56,7 @@ jobs:
           python3 quantumtools-3.0.3-polish.py
           python3 quantumtools-3.0.4-fix.py
           python3 quantumtools-3.0.5-fix.py
+          python3 quantumtools-3.0.5-api-fix.py
 
       - uses: actions/setup-java@v5
         with:
@@ -93,6 +94,7 @@ jobs:
           assert 'SLOT_SHAPE,84,42' in menu and 'SLOT_QUARRY,120,42' in menu
           assert 'TOGGLE_RULE_BASE=300' in fm
           assert 'entryBlacklist' in q and 'whitelistCount' in q and 'matchedBlacklist' in q
+          assert 'TagValueInput.create' in q and 'TagValueOutput.createWithContext' in q and 'typeHolder()' in q
           assert 'RULE: BLACK' in filt and 'RULE: WHITE' in filt
           assert 'Component.literal("MINER")' in screen
           assert 'Axis.ZP.rotationDegrees(180.0F)' in holo
