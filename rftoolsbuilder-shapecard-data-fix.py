@@ -11,7 +11,8 @@ s = s.replace(
         return tag.getInt(KEYS[field]).orElse(DEFAULTS[field]);''')
 s = s.replace(
 '''        CustomData.update(DataComponents.CUSTOM_DATA, stack, tag -> tag.putInt(KEYS[field], value));''',
-'''        CustomData existing = stack.get(DataComponents.CUSTOM_DATA);
+'''        // CustomData.update intentionally avoided here; this mirrors the proven Cage Trap 26.1 pattern.
+        CustomData existing = stack.get(DataComponents.CUSTOM_DATA);
         CompoundTag root = existing == null ? new CompoundTag() : existing.copyTag();
         root.putInt(KEYS[field], value);
         stack.set(DataComponents.CUSTOM_DATA, CustomData.of(root));''')
