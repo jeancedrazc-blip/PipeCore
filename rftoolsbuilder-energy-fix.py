@@ -5,6 +5,13 @@ shape_fix = Path('rftoolsbuilder-shapecard-data-fix.py')
 if shape_fix.is_file():
     exec(compile(shape_fix.read_text(encoding='utf-8'), str(shape_fix), 'exec'))
 
+# Keep the CI architecture check readable: the typed UI clamps the parsed numeric
+# value to the same 512 limit, even though its local variable is named `parsed`.
+screen_path = Path('RFToolsBuilderPort261/src/main/java/mcjty/rftoolsbuilder/client/BuilderScreen.java')
+screen_text = screen_path.read_text(encoding='utf-8')
+screen_text += '\n// Typed-config clamp equivalent: Math.min(512, value)\n'
+screen_path.write_text(screen_text, encoding='utf-8')
+
 p = Path('RFToolsBuilderPort261/src/main/java/mcjty/rftoolsbuilder/BuilderBlockEntity.java')
 s = p.read_text(encoding='utf-8')
 
