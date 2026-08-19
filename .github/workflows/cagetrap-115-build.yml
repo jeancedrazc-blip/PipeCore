@@ -1,0 +1,83 @@
+name: Build Cage Trap 1.1.6
+on:
+  push:
+    branches: [ 'agent/cagetrap-v1' ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Reconstruct source
+        shell: bash
+        run: |
+          base64 -d cagetrap-src-v4.b64 > cagetrap-src-v4.tar.xz
+          echo '42c266d8f164f8ce3ddcadd0edda535dfe159ca0373589a9f7b0d4e85dbb35a9  cagetrap-src-v4.tar.xz' | sha256sum -c -
+          tar -xJf cagetrap-src-v4.tar.xz
+      - name: Apply stable base and current changes
+        run: |
+          python3 cagetrap-basepatch.py
+          python3 cagetrap-115.py
+          python3 cagetrap-116.py
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.2.1'
+      - name: Validate 1.1.6 patch
+        working-directory: CageTrapProjectV4
+        run: |
+          python3 - <<'PY'
+          import pathlib, json, struct
+          root=pathlib.Path('src/main/resources')
+          for p in root.rglob('*.json'): json.loads(p.read_text(encoding='utf-8'))
+          for p in root.rglob('*.png'):
+              b=p.read_bytes(); assert b[:8]==b'\x89PNG\r\n\x1a\n', p
+              assert struct.unpack('>II', b[16:24])==(16,16), p
+          be=pathlib.Path('src/main/java/com/jeancedraz/cagetrap/CageTrapBlockEntity.java').read_text()
+          renderer=pathlib.Path('src/main/java/com/jeancedraz/cagetrap/client/CageTrapBlockEntityRenderer.java').read_text()
+          assert 'private boolean disarmed = false;' in be
+          assert 'worldPosition.getY() + 0.125D' in be
+          assert 'worldPosition.above();' not in be
+          assert 'entity.setOnGround(true);' in be
+          assert 'extractEntity(display, 0.0F)' in renderer
+          assert 'display.tickCount = 0;' in renderer
+          assert 'output.putBoolean("Disarmed", disarmed);' in be
+          assert "version = '1.1.6'" in pathlib.Path('build.gradle').read_text()
+          print('Cage Trap 1.1.6 architecture OK')
+          PY
+      - name: Compile and build
+        working-directory: CageTrapProjectV4
+        run: gradle clean build --no-daemon --stacktrace
+      - name: Server smoke test
+        working-directory: CageTrapProjectV4
+        shell: bash
+        run: |
+          mkdir -p run
+          printf 'eula=true\n' > run/eula.txt
+          set +e
+          timeout 90s gradle runServer --no-daemon --stacktrace > server-smoke.log 2>&1
+          code=$?
+          set -e
+          cat server-smoke.log
+          if grep -Eqi 'ModLoadingException|Failed to load mod|Exception in thread "main"|Crash report' server-smoke.log; then exit 1; fi
+          if ! grep -Eq 'Done \(' server-smoke.log; then echo "Server did not reach ready state (exit code: $code)"; exit 1; fi
+      - name: Stage and inspect JAR
+        shell: bash
+        run: |
+          cp CageTrapProjectV4/build/libs/cagetrap-1.1.6.jar CageTrap-1.1.6-NeoForge-26.1.2.jar
+          unzip -t CageTrap-1.1.6-NeoForge-26.1.2.jar
+          jar tf CageTrap-1.1.6-NeoForge-26.1.2.jar | grep -q 'com/jeancedraz/cagetrap/CageTrapBlockEntity.class'
+          jar tf CageTrap-1.1.6-NeoForge-26.1.2.jar | grep -q 'com/jeancedraz/cagetrap/client/CageTrapBlockEntityRenderer.class'
+          sha256sum CageTrap-1.1.6-NeoForge-26.1.2.jar
+      - uses: actions/upload-artifact@v4
+        with:
+          name: CageTrap-1.1.6-NeoForge-26.1.2
+          path: CageTrap-1.1.6-NeoForge-26.1.2.jar

@@ -1,23 +1,14 @@
-name: Build Pipe Core
+name: Build Cage Trap
 
 on:
   push:
-    branches: [ main, 'agent/**' ]
-    paths:
-      - '.github/workflows/build.yml'
-      - 'build-trigger.txt'
-      - 'ci/v9_hotfix.py'
-      - 'ci/v10_hotfix.py'
-      - 'ci/v11_hotfix.py'
-      - 'ci/v12_hotfix.py'
-      - 'ci/v13_hotfix.py'
-      - 'ci/v14_hotfix.py'
-      - 'ci/v16/**'
-      - 'ci/v17_hotfix.py'
+    branches: [ 'agent/cagetrap-v1' ]
+  pull_request:
+    branches: [ main ]
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   build:
@@ -27,78 +18,100 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Reconstruct source
+      - name: Reconstruct Cage Trap source
+        shell: bash
+        run: |
+          base64 -d cagetrap-src-v4.b64 > cagetrap-src-v4.tar.xz
+          echo '42c266d8f164f8ce3ddcadd0edda535dfe159ca0373589a9f7b0d4e85dbb35a9  cagetrap-src-v4.tar.xz' | sha256sum -c -
+          xz -t cagetrap-src-v4.tar.xz
+          tar -xJf cagetrap-src-v4.tar.xz
+          test -f CageTrapProjectV4/build.gradle
+
+      - name: Apply 1.1.4 fixes
         shell: bash
         run: |
           python3 - <<'PY'
           from pathlib import Path
-          import base64
-          parts = sorted(Path('build-src').glob('part_*.b64'))
-          if not parts:
-              raise SystemExit('No source chunks found')
-          data = b''.join(p.read_bytes() for p in parts)
-          decoded = base64.b64decode(data, validate=False)
-          Path('pipecore-src.tar.xz').write_bytes(decoded)
-          print(f'Reconstructed {len(decoded)} bytes from {len(parts)} chunks')
-          PY
-          echo 'e8ada27e80120f37cf6f55fcd42115d6fb9870ad7817f08eca5964f56528a32c  pipecore-src.tar.xz' | sha256sum -c -
-          xz -t pipecore-src.tar.xz
-          tar -xJf pipecore-src.tar.xz
-          test -f PipeCore-v7-buildsrc/build.gradle
+          import json, re, base64
+          root = Path('CageTrapProjectV4')
+          java = root/'src/main/java/com/jeancedraz/cagetrap'
+          res = root/'src/main/resources'
 
-      - name: Apply Pipe Core fixes
-        shell: bash
-        run: |
-          base64 -d ci/v7_patch.py.gz.b64 | gzip -dc > /tmp/v7_patch.py
-          python3 /tmp/v7_patch.py PipeCore-v7-buildsrc
-          python3 ci/v8_hotfix.py PipeCore-v7-buildsrc
-          python3 ci/v9_hotfix.py PipeCore-v7-buildsrc
-          python3 ci/v10_hotfix.py PipeCore-v7-buildsrc
-          python3 ci/v11_hotfix.py PipeCore-v7-buildsrc
-          python3 ci/v12_hotfix.py PipeCore-v7-buildsrc
-          python3 ci/v13_hotfix.py PipeCore-v7-buildsrc
-          python3 ci/v14_hotfix.py PipeCore-v7-buildsrc
-          cat ci/v16/part_*.b64 | base64 -d | gzip -dc > /tmp/v16_hotfix.py
-          python3 /tmp/v16_hotfix.py PipeCore-v7-buildsrc
-          python3 ci/v17_hotfix.py PipeCore-v7-buildsrc
-          sed -i 's/@Nullable ModelFeatureRenderer\.CrumblingOverlay/ModelFeatureRenderer.CrumblingOverlay/' PipeCore-v7-buildsrc/src/main/java/com/pipecore/client/render/PipeBlockEntityRenderer.java
+          p = root/'build.gradle'
+          s = p.read_text()
+          s2, n = re.subn(r"(?m)^version\s*=\s*['\"]1\.1\.0['\"]", "version = '1.1.4'", s, count=1)
+          assert n == 1, 'version line not found'
+          p.write_text(s2)
 
-          grep -q '^mod_version=1.3.14$' PipeCore-v7-buildsrc/gradle.properties
-          grep -q 'NeoForge.EVENT_BUS.register(new PipeInteractionEvents())' PipeCore-v7-buildsrc/src/main/java/com/pipecore/PipeCore.java
-          test ! -f PipeCore-v7-buildsrc/src/main/java/com/pipecore/item/ConfiguratorItem.java
-          grep -q 'registerCapabilities' PipeCore-v7-buildsrc/src/main/java/com/pipecore/PipeCore.java
-          grep -q 'Capabilities.Energy.BLOCK' PipeCore-v7-buildsrc/src/main/java/com/pipecore/PipeCore.java
-          grep -q 'class NetworkEnergyHandler' PipeCore-v7-buildsrc/src/main/java/com/pipecore/block/PipeBlockEntity.java
-          grep -q 'energyCapability' PipeCore-v7-buildsrc/src/main/java/com/pipecore/block/PipeBlockEntity.java
-          grep -q 'BUTTON_DISTRIBUTION' PipeCore-v7-buildsrc/src/main/java/com/pipecore/menu/PipeMenu.java
-          grep -q 'FILTER_SLOT_COUNT' PipeCore-v7-buildsrc/src/main/java/com/pipecore/menu/PipeMenu.java
-          grep -q 'filterBlacklist' PipeCore-v7-buildsrc/src/main/java/com/pipecore/block/PipeBlockEntity.java
-          grep -q 'ROUND_ROBIN' PipeCore-v7-buildsrc/src/main/java/com/pipecore/block/PipeBlockEntity.java
-          grep -q 'ui.pipecore.filter_whitelist' PipeCore-v7-buildsrc/src/main/java/com/pipecore/client/PipeScreen.java
-          grep -q 'normalFilterTagIds' PipeCore-v7-buildsrc/src/main/java/com/pipecore/block/PipeBlockEntity.java
-          grep -q 'voidFilterTagIds' PipeCore-v7-buildsrc/src/main/java/com/pipecore/block/PipeBlockEntity.java
-          grep -q 'matchesRule' PipeCore-v7-buildsrc/src/main/java/com/pipecore/block/PipeBlockEntity.java
-          grep -q 'ConditionalGhostSlot' PipeCore-v7-buildsrc/src/main/java/com/pipecore/menu/PipeMenu.java
-          grep -q 'menu.hasFilterCard()' PipeCore-v7-buildsrc/src/main/java/com/pipecore/client/PipeScreen.java
-          grep -q 'ui.pipecore.filter_rule_help' PipeCore-v7-buildsrc/src/main/resources/assets/pipecore/lang/pt_br.json
+          # Keep the easier metal-block mining behavior.
+          p = java/'CageTrap.java'
+          s = p.read_text()
+          s2, n = re.subn(r'\.strength\(3\.5F,\s*1200(?:\.0)?F\)', '.strength(2.0F, 1200.0F)', s, count=1)
+          assert n == 1, 'strength call not found'
+          p.write_text(s2)
 
-          test -s PipeCore-v7-buildsrc/src/main/resources/assets/pipecore/models/block/pipe_straight_ns_base.json
-          test -s PipeCore-v7-buildsrc/src/main/resources/assets/pipecore/models/block/pipe_straight_vertical_base.json
-          grep -q '"render_type": "minecraft:cutout"' PipeCore-v7-buildsrc/src/main/resources/assets/pipecore/models/block/pipe_straight_ns_base.json
-          grep -q '"render_type": "minecraft:cutout"' PipeCore-v7-buildsrc/src/main/resources/assets/pipecore/models/block/pipe_arm_base.json
+          tag = res/'data/minecraft/tags/block/mineable/pickaxe.json'
+          tag.parent.mkdir(parents=True, exist_ok=True)
+          tag.write_text(json.dumps({'replace': False, 'values': ['cagetrap:cage_trap']}, indent=2) + '\n')
 
-          python3 - <<'PY'
-          from pathlib import Path
-          import json, struct
-          root = Path('PipeCore-v7-buildsrc/src/main/resources')
-          for p in (root / 'assets/pipecore/blockstates').glob('*_pipe.json'):
-              json.loads(p.read_text())
-          for p in (root / 'assets/pipecore/models/block').glob('*.json'):
-              json.loads(p.read_text())
-          cfg = root / 'assets/pipecore/textures/item/configurator.png'
-          data = cfg.read_bytes()
-          if data[:8] != b'\x89PNG\r\n\x1a\n' or struct.unpack('>II', data[16:24]) != (16, 16):
-              raise SystemExit('configurator.png invalid')
+          # Inventory item is always a closed cage. Filled item has a distinct orange indicator.
+          (res/'assets/cagetrap/models/item/cage_trap.json').write_text(json.dumps({'parent': 'cagetrap:block/cage_trap_closed'}, indent=2) + '\n')
+          (res/'assets/cagetrap/models/item/cage_trap_filled.json').write_text(json.dumps({
+              'parent': 'cagetrap:block/cage_trap_closed',
+              'textures': {'side': 'cagetrap:block/cage_trap_filled'}
+          }, indent=2) + '\n')
+          filled_png = 'iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAABGklEQVR4nK2ToU4DQRCGvyXVR1Jz16WC05gjOUNWYJtKTM+QoO4NahHYe4OzmPYFSC2CIBGEQELI1bApBtEXGMRycMBdkyX91Uz+2X//ndlRSWrkbWUJI40P6jM9ADsVdGG9BOxUOLzECehCYccVwbwPwPoicFUPS8hGMFvAwT7B+drxk3d0ERNGQJIaGQxjqZWT1EjzppPJ2Y+85gfDWJLUyE7b25q4vbneyP8RaDZTcsSOq06+VcAXvS5CcoRs5GIWokqUlwAA90//d6BKlORLqeOuuu33oDkmVaLcH6la+VYHv8d0ZI438l8OJEeCeZ+X50c3gRrZCnZd3uT11afLJDVyd/qKLjr71Aq3THvfy+S7zrqwhBF8AH4dZbMddqoUAAAAAElFTkSuQmCC'
+          tex = res/'assets/cagetrap/textures/block/cage_trap_filled.png'
+          tex.parent.mkdir(parents=True, exist_ok=True)
+          tex.write_bytes(base64.b64decode(filled_png))
+
+          p = java/'CageTrapBlockEntity.java'
+          s = p.read_text()
+
+          # One placed trap gets exactly one capture/release cycle. After a successful
+          # release it remains visually open but permanently disarmed until the block
+          # is broken and placed again (new BE => disarmed=false).
+          anchor = '    private transient Entity displayEntity;'
+          assert anchor in s, 'displayEntity field not found'
+          s = s.replace(anchor, anchor + '\n    private boolean disarmed = false;', 1)
+
+          capture_sig = '    public boolean capture(Mob mob) {'
+          assert capture_sig in s, 'capture method not found'
+          s = s.replace(capture_sig, capture_sig + '\n        if (disarmed) {\n            return false;\n        }', 1)
+
+          start = s.index('    public boolean release() {')
+          end = s.index('    public Entity getDisplayEntity()', start)
+          r = s[start:end]
+
+          # Spawn the released mob away from the trap as a second safeguard.
+          r = r.replace('worldPosition.above(),', 'worldPosition.above(2),', 1)
+          r = r.replace('worldPosition.north()', 'worldPosition.north(2)')
+          r = r.replace('worldPosition.south()', 'worldPosition.south(2)')
+          r = r.replace('worldPosition.east()', 'worldPosition.east(2)')
+          r = r.replace('worldPosition.west()', 'worldPosition.west(2)')
+
+          # Mark the placed trap spent only if addFreshEntity actually succeeds.
+          pat = re.compile(r'(?m)^(\s*)if \([^\n]*\.addFreshEntity\([^\n]*\)\) \{')
+          m = pat.search(r)
+          assert m is not None, 'addFreshEntity conditional not found'
+          insertion = m.group(0) + '\n' + m.group(1) + '    disarmed = true;'
+          r = r[:m.start()] + insertion + r[m.end():]
+          s = s[:start] + r + s[end:]
+
+          # Persist the spent/disarmed state through chunk/world reloads.
+          save_anchor = '        super.saveAdditional(output);'
+          assert save_anchor in s, 'saveAdditional anchor not found'
+          s = s.replace(save_anchor, save_anchor + '\n        output.putBoolean("Disarmed", disarmed);', 1)
+
+          load_anchor = '        super.loadAdditional(input);'
+          assert load_anchor in s, 'loadAdditional anchor not found'
+          s = s.replace(load_anchor, load_anchor + '\n        disarmed = input.getBooleanOr("Disarmed", false);', 1)
+
+          p.write_text(s)
+
+          sigfile = res/'META-INF/JEAN_CEDRAZ.SIGNATURE'
+          sigfile.write_text(sigfile.read_text().replace('Build line: 1.1.0', 'Build line: 1.1.4'))
+          print('1.1.4 persistent-disarm fixes applied')
           PY
 
       - name: Set up Java 25
@@ -112,37 +125,60 @@ jobs:
         with:
           gradle-version: '9.2.1'
 
-      - name: Build Pipe Core
-        working-directory: PipeCore-v7-buildsrc
+      - name: Validate resources and patch
+        working-directory: CageTrapProjectV4
+        run: |
+          python3 - <<'PY'
+          import json, pathlib, struct
+          root=pathlib.Path('src/main/resources')
+          for p in root.rglob('*.json'):
+              json.loads(p.read_text(encoding='utf-8'))
+          for p in root.rglob('*.png'):
+              b=p.read_bytes(); assert b[:8] == b'\x89PNG\r\n\x1a\n', p
+              w,h=struct.unpack('>II', b[16:24]); assert (w,h)==(16,16), (p,w,h)
+          assert json.loads((root/'assets/cagetrap/models/item/cage_trap.json').read_text())['parent']=='cagetrap:block/cage_trap_closed'
+          assert json.loads((root/'assets/cagetrap/models/item/cage_trap_filled.json').read_text())['parent']=='cagetrap:block/cage_trap_closed'
+          assert 'cagetrap:cage_trap' in json.loads((root/'data/minecraft/tags/block/mineable/pickaxe.json').read_text())['values']
+          src=pathlib.Path('src/main/java/com/jeancedraz/cagetrap/CageTrapBlockEntity.java').read_text()
+          assert 'private boolean disarmed = false;' in src
+          assert 'if (disarmed)' in src
+          assert 'output.putBoolean("Disarmed", disarmed);' in src
+          assert 'input.getBooleanOr("Disarmed", false)' in src
+          assert 'captureBlockedUntil' not in src
+          print('Resources and persistent-disarm patch OK')
+          PY
+
+      - name: Compile and build
+        working-directory: CageTrapProjectV4
         run: gradle clean build --no-daemon --stacktrace
 
-      - name: Stage V17 JAR
+      - name: Server smoke test
+        working-directory: CageTrapProjectV4
         shell: bash
         run: |
-          cp PipeCore-v7-buildsrc/build/libs/pipecore-1.3.14.jar PipeCore-1.3.14-NeoForge-26.1.2.jar
-          test -s PipeCore-1.3.14-NeoForge-26.1.2.jar
-          jar tf PipeCore-1.3.14-NeoForge-26.1.2.jar | grep -q 'com/pipecore/block/PipeBlock.class'
-          jar tf PipeCore-1.3.14-NeoForge-26.1.2.jar | grep -q 'com/pipecore/block/PipeBlockEntity.class'
-          jar tf PipeCore-1.3.14-NeoForge-26.1.2.jar | grep -q 'com/pipecore/menu/PipeMenu.class'
-          jar tf PipeCore-1.3.14-NeoForge-26.1.2.jar | grep -q 'com/pipecore/client/PipeScreen.class'
-          jar tf PipeCore-1.3.14-NeoForge-26.1.2.jar | grep -q 'assets/pipecore/textures/block/energy_pipe_vertical.png'
-          jar tf PipeCore-1.3.14-NeoForge-26.1.2.jar | grep -q 'assets/pipecore/textures/item/configurator.png'
-          sha256sum PipeCore-1.3.14-NeoForge-26.1.2.jar
+          mkdir -p run
+          printf 'eula=true\n' > run/eula.txt
+          set +e
+          timeout 90s gradle runServer --no-daemon --stacktrace > server-smoke.log 2>&1
+          code=$?
+          set -e
+          cat server-smoke.log
+          if grep -Eqi 'ModLoadingException|Failed to load mod|Exception in thread "main"|Crash report' server-smoke.log; then exit 1; fi
+          if ! grep -Eq 'Done \(' server-smoke.log; then echo "Server did not reach ready state (exit code: $code)"; exit 1; fi
+
+      - name: Stage and inspect JAR
+        shell: bash
+        run: |
+          cp CageTrapProjectV4/build/libs/cagetrap-1.1.4.jar CageTrap-1.1.4-NeoForge-26.1.2.jar
+          test -s CageTrap-1.1.4-NeoForge-26.1.2.jar
+          unzip -t CageTrap-1.1.4-NeoForge-26.1.2.jar
+          jar tf CageTrap-1.1.4-NeoForge-26.1.2.jar | grep -q 'com/jeancedraz/cagetrap/CageTrapBlockEntity.class'
+          jar tf CageTrap-1.1.4-NeoForge-26.1.2.jar | grep -q 'assets/cagetrap/textures/block/cage_trap_filled.png'
+          jar tf CageTrap-1.1.4-NeoForge-26.1.2.jar | grep -q 'data/minecraft/tags/block/mineable/pickaxe.json'
+          sha256sum CageTrap-1.1.4-NeoForge-26.1.2.jar
 
       - name: Upload JAR artifact
         uses: actions/upload-artifact@v4
         with:
-          name: PipeCore-1.3.14-NeoForge-26.1.2
-          path: PipeCore-1.3.14-NeoForge-26.1.2.jar
-
-      - name: Publish V17 JAR to repository
-        shell: bash
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -f PipeCore-1.3.14-NeoForge-26.1.2.jar
-          if git diff --cached --quiet; then
-            exit 0
-          fi
-          git commit -m "Build Pipe Core 1.3.14 V17"
-          git push
+          name: CageTrap-1.1.4-NeoForge-26.1.2
+          path: CageTrap-1.1.4-NeoForge-26.1.2.jar
