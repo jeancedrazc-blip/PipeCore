@@ -53,6 +53,7 @@ jobs:
           python3 quantum-filter-client.py
           python3 quantum-api-fix.py
           python3 quantumtools-assets.py
+          python3 quantum-ui-polish.py
 
       - uses: actions/setup-java@v5
         with:
@@ -82,6 +83,7 @@ jobs:
           be=(src/'BuilderBlockEntity.java').read_text()
           main=(src/'RFToolsBuilder.java').read_text()
           menu=(src/'QuarryFilterMenu.java').read_text()
+          screen=(src/'client/BuilderScreen.java').read_text()
           assert 'MAX_FILTER_ENTRIES = 18' in q
           assert 'TagValueOutput.createWithContext' in q and 'TagValueInput.create' in q
           assert 'typeHolder().tags()' in q
@@ -90,6 +92,7 @@ jobs:
           assert 'QuarryCardItem.allowsBlock' in be
           assert 'QUARRY_FILTER_MENU' in main
           assert 'playToServer' in main
+          assert 'compact(energy)' in screen and 'QUANTUM BUILDER' in screen
           assert 'Quantum Tools' in (root/'META-INF/neoforge.mods.toml').read_text()
           print('Quantum architecture/resources OK')
           PY
