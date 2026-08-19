@@ -1,0 +1,36 @@
+name: Probe Cage Trap Overlay APIs
+on:
+  push:
+    branches: [ 'agent/cagetrap-v1' ]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - shell: bash
+        run: |
+          base64 -d cagetrap-src-v4.b64 > cagetrap-src-v4.tar.xz
+          tar -xJf cagetrap-src-v4.tar.xz
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.2.1'
+      - working-directory: CageTrapProjectV4
+        run: gradle createMinecraftArtifacts --no-daemon
+      - shell: bash
+        run: |
+          JAR=CageTrapProjectV4/build/moddev/artifacts/minecraft-patched-26.1.2.95.jar
+          echo '=== GuiGraphicsExtractor ==='
+          javap -classpath "$JAR" net.minecraft.client.gui.GuiGraphicsExtractor | grep -E 'Scissor|scissor|pose|item\(|fill\(|text\(' || true
+          echo '=== InventoryScreen ==='
+          javap -classpath "$JAR" net.minecraft.client.gui.screens.inventory.InventoryScreen | grep -E 'renderEntityInInventory' || true
+          echo '=== EntityType load ==='
+          javap -classpath "$JAR" net.minecraft.world.entity.EntityType | grep -E 'loadEntityRecursive|create\(' || true
+          echo '=== LivingEntity dimensions ==='
+          javap -classpath "$JAR" net.minecraft.world.entity.LivingEntity | grep -E 'BbHeight|BbWidth|EyeHeight|getScale' || true
