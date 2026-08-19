@@ -13,7 +13,7 @@ s = s.replace(
         return ItemStack.parseOptional(registries, tag);''',
 '''        CompoundTag tag = r.getCompound(ITEM_PREFIX + index).orElse(null);
         if (tag == null) return ItemStack.EMPTY;
-        TagValueInput input = TagValueInput.create(ProblemReporter.DISCARDING, registries, tag);
+        var input = TagValueInput.create(ProblemReporter.DISCARDING, registries, tag);
         return input.read("Stack", ItemStack.CODEC).orElse(ItemStack.EMPTY);''')
 s = s.replace(
 '''        CompoundTag r = root(card);
@@ -55,7 +55,6 @@ s = s.replace(
         modeButton = addRenderableWidget''')
 s = s.replace('(page + 1) * 8 < QuarryCardItem.entryCount(card())', '(page + 1) * 4 < QuarryCardItem.entryCount(card())')
 s = s.replace('int maxPage = Math.max(0, (count - 1) / 8);', 'int maxPage = Math.max(0, (count - 1) / 4);')
-# Insert button sync before remove/expand activation.
 s = s.replace(
 '''        if (removeButton != null) removeButton.active = selected >= 0;''',
 '''        for (int i = 0; i < entryButtons.length; i++) {
@@ -68,12 +67,10 @@ s = s.replace(
             entryButtons[i].setMessage(Component.literal(label));
         }
         if (removeButton != null) removeButton.active = selected >= 0;''')
-# Remove obsolete mouseClicked override entirely.
 s, n = re.subn(r'''\n    @Override\n    public boolean mouseClicked\(double mouseX, double mouseY, int button\) \{.*?\n    \}\n\n    private String entryLabel''', '\n\n    private String entryLabel', s, count=1, flags=re.S)
 if n != 1:
     raise SystemExit('Obsolete mouseClicked block not found')
 s = s.replace('int start = page * 8;', 'int start = page * 4;')
-# Background no longer draws labels over actual entry buttons; leave only frames.
 old_loop = r'''        for (int local = 0; local < 4; local++) {
             int combined = start + local;
             int col = local / 2, row = local % 2;
