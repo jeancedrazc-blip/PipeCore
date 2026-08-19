@@ -35,17 +35,37 @@ jobs:
           PYFIX
           python3 rftoolsbuilder-ui-v2.py
           python3 rftoolsbuilder-energy-fix.py
-      - name: Print source map
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.2.1'
+      - name: Create Minecraft artifacts
+        working-directory: RFToolsBuilderPort261
+        run: gradle createMinecraftArtifacts --no-daemon
+      - name: Probe exact APIs
         shell: bash
         run: |
-          find RFToolsBuilderPort261/src/main/java -type f | sort
-          echo '=== CLIENT FILES ==='
-          for f in RFToolsBuilderPort261/src/main/java/mcjty/rftoolsbuilder/client/*.java; do echo "=== $f ==="; sed -n '1,360p' "$f"; done
-          echo '=== MOD MAIN ==='
-          sed -n '1,360p' RFToolsBuilderPort261/src/main/java/mcjty/rftoolsbuilder/RFToolsBuilder.java
-          echo '=== QUARRY CARD ==='
-          sed -n '1,360p' RFToolsBuilderPort261/src/main/java/mcjty/rftoolsbuilder/QuarryCardItem.java
-          echo '=== BUILDER BLOCK ==='
-          sed -n '1,320p' RFToolsBuilderPort261/src/main/java/mcjty/rftoolsbuilder/BuilderBlock.java
-          echo '=== MOD METADATA ==='
-          find RFToolsBuilderPort261/src/main/resources -maxdepth 4 -type f | sort | head -160
+          JAR=''
+          while IFS= read -r f; do
+            if jar tf "$f" 2>/dev/null | grep -q '^net/minecraft/world/item/ItemStack.class$'; then JAR="$f"; break; fi
+          done < <(find RFToolsBuilderPort261/build ~/.gradle/caches -type f -name '*.jar' 2>/dev/null)
+          echo "MINECRAFT_JAR=$JAR"
+          test -n "$JAR"
+          echo '=== ItemStack ==='
+          javap -classpath "$JAR" net.minecraft.world.item.ItemStack | grep -E 'CODEC|MAP_CODEC|typeHolder|getItemHolder|getComponents|Damage|same|matches|ItemStack\(' || true
+          echo '=== AbstractContainerMenu ==='
+          javap -classpath "$JAR" net.minecraft.world.inventory.AbstractContainerMenu | grep -E 'clicked|quickMove|ContainerInput|ClickType' || true
+          echo '=== ContainerInput ==='
+          javap -classpath "$JAR" net.minecraft.world.inventory.ContainerInput || true
+          echo '=== ClickType ==='
+          javap -classpath "$JAR" net.minecraft.world.inventory.ClickType || true
+          echo '=== TagValueOutput ==='
+          javap -classpath "$JAR" net.minecraft.world.level.storage.TagValueOutput | head -120 || true
+          echo '=== TagValueInput ==='
+          javap -classpath "$JAR" net.minecraft.world.level.storage.TagValueInput | head -120 || true
+          echo '=== Holder Item tags / BuiltInRegistries ==='
+          javap -classpath "$JAR" net.minecraft.core.Holder | grep -E 'tags|is\(' || true
+          javap -classpath "$JAR" net.minecraft.core.registries.BuiltInRegistries | head -40 || true
