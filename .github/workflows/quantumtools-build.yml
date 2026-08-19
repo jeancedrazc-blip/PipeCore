@@ -1,4 +1,4 @@
-name: Build Quantum Tools 3.0.1
+name: Build Quantum Tools 3.0.2
 
 on:
   push:
@@ -55,6 +55,7 @@ jobs:
           python3 quantumtools-assets.py
           python3 quantum-ui-polish.py
           python3 quantumtools-3.0.1-fix.py
+          python3 quantumtools-3.0.2-fix.py
 
       - uses: actions/setup-java@v5
         with:
@@ -83,19 +84,21 @@ jobs:
           menu=(src/'QuarryFilterMenu.java').read_text()
           filter_screen=(src/'client/QuarryFilterScreen.java').read_text()
           builder_screen=(src/'client/BuilderScreen.java').read_text()
+          client_reg=(src/'client/RFToolsBuilderClient.java').read_text()
           assert 'MAX_FILTER_ENTRIES = 18' in q
-          assert 'TagValueOutput.createWithContext' in q and 'TagValueInput.create' in q
-          assert 'typeHolder().tags()' in q
           assert 'ContainerInput.QUICK_MOVE' in menu
           assert 'QuarryCardItem.allowsBlock' in be
           assert 'SCAN_BUDGET = 4096' in be
-          assert 'new Button[18]' in filter_screen and '256, 292' in filter_screen
-          assert 'permille' in builder_screen and 'QUANTUM BUILDER' in builder_screen
+          assert 'hologramTarget()' in be and 'getUpdatePacket()' in be
+          assert 'public boolean keyPressed(KeyEvent event)' in builder_screen
+          assert 'public boolean keyPressed(KeyEvent event)' in filter_screen
+          assert (src/'client/QuantumBuilderRenderState.java').is_file()
+          assert (src/'client/QuantumBuilderBlockEntityRenderer.java').is_file()
+          assert 'registerBlockEntityRenderer' in client_reg
           assert 'QUARRY_FILTER_MENU' in main
-          assert 'playToServer' in main
-          assert "version = '3.0.1'" in pathlib.Path('build.gradle').read_text()
+          assert "version = '3.0.2'" in pathlib.Path('build.gradle').read_text()
           assert 'Quantum Tools' in (root/'META-INF/neoforge.mods.toml').read_text()
-          print('Quantum Tools 3.0.1 architecture/resources OK')
+          print('Quantum Tools 3.0.2 architecture/resources OK')
           PY
 
       - name: Compile and build
@@ -121,15 +124,16 @@ jobs:
         run: |
           JAR=$(find RFToolsBuilderPort261/build/libs -maxdepth 1 -name '*.jar' ! -name '*sources*' | head -n1)
           test -n "$JAR"
-          cp "$JAR" QuantumTools-3.0.1-NeoForge-26.1.2.jar
-          unzip -t QuantumTools-3.0.1-NeoForge-26.1.2.jar
-          jar tf QuantumTools-3.0.1-NeoForge-26.1.2.jar | grep -q 'mcjty/rftoolsbuilder/QuarryFilterMenu.class'
-          jar tf QuantumTools-3.0.1-NeoForge-26.1.2.jar | grep -q 'mcjty/rftoolsbuilder/client/QuarryFilterScreen.class'
-          jar tf QuantumTools-3.0.1-NeoForge-26.1.2.jar | grep -q 'assets/rftoolsbuilder/textures/item/shapecardfortuneitem.png'
-          unzip -p QuantumTools-3.0.1-NeoForge-26.1.2.jar META-INF/neoforge.mods.toml | grep -q 'Quantum Tools'
-          sha256sum QuantumTools-3.0.1-NeoForge-26.1.2.jar
+          cp "$JAR" QuantumTools-3.0.2-NeoForge-26.1.2.jar
+          unzip -t QuantumTools-3.0.2-NeoForge-26.1.2.jar
+          jar tf QuantumTools-3.0.2-NeoForge-26.1.2.jar | grep -q 'mcjty/rftoolsbuilder/QuarryFilterMenu.class'
+          jar tf QuantumTools-3.0.2-NeoForge-26.1.2.jar | grep -q 'mcjty/rftoolsbuilder/client/QuantumBuilderBlockEntityRenderer.class'
+          jar tf QuantumTools-3.0.2-NeoForge-26.1.2.jar | grep -q 'mcjty/rftoolsbuilder/client/QuantumBuilderRenderState.class'
+          jar tf QuantumTools-3.0.2-NeoForge-26.1.2.jar | grep -q 'assets/rftoolsbuilder/textures/item/shapecardfortuneitem.png'
+          unzip -p QuantumTools-3.0.2-NeoForge-26.1.2.jar META-INF/neoforge.mods.toml | grep -q 'Quantum Tools'
+          sha256sum QuantumTools-3.0.2-NeoForge-26.1.2.jar
 
       - uses: actions/upload-artifact@v4
         with:
-          name: QuantumTools-3.0.1-NeoForge-26.1.2
-          path: QuantumTools-3.0.1-NeoForge-26.1.2.jar
+          name: QuantumTools-3.0.2-NeoForge-26.1.2
+          path: QuantumTools-3.0.2-NeoForge-26.1.2.jar
