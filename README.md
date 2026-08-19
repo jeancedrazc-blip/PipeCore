@@ -4,8 +4,12 @@ Custom NeoForge pipe mod project for Minecraft 26.1.2.
 
 ## Canonical project state
 
-The user-confirmed current development version is **V24**, but the repository source currently present on `main` is older than that baseline.
+- Current development version: **V24**
+- Internal mod version: **1.3.21**
+- Canonical SHA-256: `46cfabdcf125a999df400ac00a15756a941c1b3febe8c08ae7f2b853b8cb69ca`
 
-Before implementing any new PipeCore change, read [`PROJECT_STATE.md`](PROJECT_STATE.md). New development must not start from the older source until the real V24 JAR/source is imported and verified.
+The exact V24 JAR supplied by the user is preserved losslessly in `baselines/parts/` as ordered Base64 chunks. Run `scripts/restore_baseline.py` to reconstruct `baselines/PipeCore-V24-1.3.21-NeoForge-26.1.2.jar` and verify its hash.
 
-See [`CHANGELOG.md`](CHANGELOG.md) for the verified-only version policy.
+The older source/history already present in this repository remains preserved, but it must not be treated as equivalent to V24 unless verified against the canonical artifact.
+
+Before implementing any new PipeCore change, read [`PROJECT_STATE.md`](PROJECT_STATE.md) and [`CHANGELOG.md`](CHANGELOG.md).
