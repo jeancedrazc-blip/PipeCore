@@ -1,0 +1,131 @@
+name: Build Pipe Core 1.3.15
+
+on:
+  push:
+    branches: [ 'agent/pipecore-filter-rework' ]
+    paths:
+      - 'ci/v18_hotfix.py'
+      - '.github/workflows/pipecore-135-build.yml'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'ci/v18_hotfix.py'
+      - '.github/workflows/pipecore-135-build.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Reconstruct source
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import base64
+          parts = sorted(Path('build-src').glob('part_*.b64'))
+          if not parts:
+              raise SystemExit('No source chunks found')
+          data = b''.join(p.read_bytes() for p in parts)
+          decoded = base64.b64decode(data, validate=False)
+          Path('pipecore-src.tar.xz').write_bytes(decoded)
+          print(f'Reconstructed {len(decoded)} bytes from {len(parts)} chunks')
+          PY
+          echo 'e8ada27e80120f37cf6f55fcd42115d6fb9870ad7817f08eca5964f56528a32c  pipecore-src.tar.xz' | sha256sum -c -
+          xz -t pipecore-src.tar.xz
+          tar -xJf pipecore-src.tar.xz
+          test -f PipeCore-v7-buildsrc/build.gradle
+
+      - name: Apply Pipe Core through V18
+        shell: bash
+        run: |
+          base64 -d ci/v7_patch.py.gz.b64 | gzip -dc > /tmp/v7_patch.py
+          python3 /tmp/v7_patch.py PipeCore-v7-buildsrc
+          python3 ci/v8_hotfix.py PipeCore-v7-buildsrc
+          python3 ci/v9_hotfix.py PipeCore-v7-buildsrc
+          python3 ci/v10_hotfix.py PipeCore-v7-buildsrc
+          python3 ci/v11_hotfix.py PipeCore-v7-buildsrc
+          python3 ci/v12_hotfix.py PipeCore-v7-buildsrc
+          python3 ci/v13_hotfix.py PipeCore-v7-buildsrc
+          python3 ci/v14_hotfix.py PipeCore-v7-buildsrc
+          cat ci/v16/part_*.b64 | base64 -d | gzip -dc > /tmp/v16_hotfix.py
+          python3 /tmp/v16_hotfix.py PipeCore-v7-buildsrc
+          python3 ci/v17_hotfix.py PipeCore-v7-buildsrc
+          python3 ci/v18_hotfix.py PipeCore-v7-buildsrc
+          sed -i 's/@Nullable ModelFeatureRenderer\.CrumblingOverlay/ModelFeatureRenderer.CrumblingOverlay/' PipeCore-v7-buildsrc/src/main/java/com/pipecore/client/render/PipeBlockEntityRenderer.java
+
+      - name: Validate V18 architecture
+        working-directory: PipeCore-v7-buildsrc
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import json
+          src = Path('src/main/java/com/pipecore')
+          be = (src/'block/PipeBlockEntity.java').read_text()
+          menu = (src/'menu/PipeMenu.java').read_text()
+          screen = (src/'client/PipeScreen.java').read_text()
+          assert 'NORMAL_FILTER_SLOTS = 100' in be
+          assert 'VOID_FILTER_SLOTS = 16' in be
+          assert 'normalFilterBlacklist' in be and 'voidFilterBlacklist' in be
+          assert 'toggleNormalFilterRule' in be and 'toggleVoidFilterRule' in be
+          assert 'matchedWhitelist' in be and 'shouldVoid' in be
+          assert 'NORMAL_VISIBLE_SLOTS = 10' in menu
+          assert 'VOID_VISIBLE_SLOTS = 8' in menu
+          assert 'NORMAL_PAGE_COUNT' in menu and 'VOID_PAGE_COUNT' in menu
+          assert 'BUTTON_NORMAL_RULE_BASE' in menu and 'BUTTON_VOID_RULE_BASE' in menu
+          assert 'normalRuleBlacklist' in screen and 'voidRuleBlacklist' in screen
+          assert 'W permite' in json.loads(Path('src/main/resources/assets/pipecore/lang/pt_br.json').read_text())['ui.pipecore.filter_rule_help_v18']
+          assert Path('gradle.properties').read_text().find('mod_version=1.3.15') >= 0
+          print('Pipe Core V18 architecture OK')
+          PY
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.2.1'
+
+      - name: Compile and build
+        working-directory: PipeCore-v7-buildsrc
+        run: gradle clean build --no-daemon --stacktrace
+
+      - name: Server smoke test
+        working-directory: PipeCore-v7-buildsrc
+        shell: bash
+        run: |
+          mkdir -p run
+          printf 'eula=true\n' > run/eula.txt
+          set +e
+          timeout 90s gradle runServer --no-daemon --stacktrace > server-smoke.log 2>&1
+          code=$?
+          set -e
+          cat server-smoke.log
+          if grep -Eqi 'ModLoadingException|Failed to load mod|Exception in thread "main"|Crash report' server-smoke.log; then exit 1; fi
+          if ! grep -Eq 'Done \(' server-smoke.log; then echo "Server did not reach ready state (exit code: $code)"; exit 1; fi
+
+      - name: Stage and inspect JAR
+        shell: bash
+        run: |
+          JAR=$(find PipeCore-v7-buildsrc/build/libs -maxdepth 1 -name '*.jar' ! -name '*sources*' | head -n1)
+          test -n "$JAR"
+          cp "$JAR" PipeCore-1.3.15-NeoForge-26.1.2.jar
+          unzip -t PipeCore-1.3.15-NeoForge-26.1.2.jar
+          jar tf PipeCore-1.3.15-NeoForge-26.1.2.jar | grep -q 'com/pipecore/block/PipeBlockEntity.class'
+          jar tf PipeCore-1.3.15-NeoForge-26.1.2.jar | grep -q 'com/pipecore/menu/PipeMenu.class'
+          jar tf PipeCore-1.3.15-NeoForge-26.1.2.jar | grep -q 'com/pipecore/client/PipeScreen.class'
+          sha256sum PipeCore-1.3.15-NeoForge-26.1.2.jar
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: PipeCore-1.3.15-NeoForge-26.1.2
+          path: PipeCore-1.3.15-NeoForge-26.1.2.jar
