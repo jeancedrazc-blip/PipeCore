@@ -1,0 +1,50 @@
+name: Probe Quantum APIs
+
+on:
+  push:
+    branches: [ 'agent/rftoolsbuilder-port-26.1.2' ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - shell: bash
+        run: |
+          base64 -d rftoolsbuilder-port261-src.b64 > rftoolsbuilder-port261-src.tar.xz
+          tar -xJf rftoolsbuilder-port261-src.tar.xz
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.2.1'
+      - name: Create Minecraft artifacts
+        working-directory: RFToolsBuilderPort261
+        run: gradle createMinecraftArtifacts --no-daemon
+      - name: Javap target APIs
+        shell: bash
+        run: |
+          JAR=''
+          while IFS= read -r f; do
+            if jar tf "$f" 2>/dev/null | grep -q '^net/minecraft/world/item/ItemStack.class$'; then JAR="$f"; break; fi
+          done < <(find RFToolsBuilderPort261/build ~/.gradle/caches -type f -name '*.jar' 2>/dev/null)
+          echo "MINECRAFT_JAR=$JAR"
+          test -n "$JAR"
+          echo '=== ItemStack ==='
+          javap -classpath "$JAR" net.minecraft.world.item.ItemStack | grep -E 'CODEC|MAP_CODEC|typeHolder|getItemHolder|getComponents|Damage|same|matches|ItemStack\(' || true
+          echo '=== AbstractContainerMenu clicked ==='
+          javap -classpath "$JAR" net.minecraft.world.inventory.AbstractContainerMenu | grep -E 'clicked|quickMove|ContainerInput|ClickType' || true
+          echo '=== ContainerInput ==='
+          javap -classpath "$JAR" net.minecraft.world.inventory.ContainerInput || true
+          echo '=== ClickType ==='
+          javap -classpath "$JAR" net.minecraft.world.inventory.ClickType || true
+          echo '=== TagValueOutput ==='
+          javap -classpath "$JAR" net.minecraft.world.level.storage.TagValueOutput | head -100 || true
+          echo '=== TagValueInput ==='
+          javap -classpath "$JAR" net.minecraft.world.level.storage.TagValueInput | head -100 || true

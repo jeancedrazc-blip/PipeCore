@@ -1,0 +1,33 @@
+name: Inspect Quantum 3.0.3 Targets
+on:
+  push:
+    branches: [ 'agent/rftoolsbuilder-port-26.1.2' ]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - shell: bash
+        run: |
+          base64 -d rftoolsbuilder-port261-src.b64 > rftoolsbuilder-port261-src.tar.xz
+          tar -xJf rftoolsbuilder-port261-src.tar.xz
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('RFToolsBuilderPort261/src/main/java/mcjty/rftoolsbuilder/client/BuilderScreen.java')
+          s=p.read_text(); s=s.replace('import net.minecraft.client.gui.GuiGraphicsExtractor;\n','import net.minecraft.client.Minecraft;\nimport net.minecraft.client.gui.GuiGraphicsExtractor;\n').replace('import net.minecraft.client.gui.screens.Screen;\n','').replace('        super(menu, inventory, title);\n        this.imageWidth = 176;\n        this.imageHeight = 218;\n','        super(menu, inventory, title, 176, 218);\n').replace('        boolean fast = Screen.hasShiftDown();','        boolean fast = Minecraft.getInstance().hasShiftDown();').replace('    protected void extractBackground(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {','    public void extractBackground(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {'); p.write_text(s)
+          p=Path('RFToolsBuilderPort261/src/main/java/mcjty/rftoolsbuilder/RFToolsBuilder.java'); p.write_text(p.read_text().replace('Capabilities.EnergyStorage.BLOCK','Capabilities.Energy.BLOCK'))
+          PY
+          python3 rftoolsbuilder-ui-v2.py
+          python3 rftoolsbuilder-energy-fix.py
+          python3 quantum-filter-core.py
+          python3 quantum-filter-client.py
+          python3 quantum-api-fix.py
+          python3 quantumtools-assets.py
+          python3 quantum-ui-polish.py
+          python3 quantumtools-3.0.1-fix.py
+          python3 quantumtools-3.0.2-fix.py
+          for f in BuilderBlockEntity.java BuilderMenu.java ShapeCardItem.java; do echo =====$f=====; sed -n '1,760p' RFToolsBuilderPort261/src/main/java/mcjty/rftoolsbuilder/$f; done
+          for f in BuilderScreen.java QuarryFilterScreen.java QuantumBuilderBlockEntityRenderer.java RFToolsBuilderClient.java; do echo =====$f=====; sed -n '1,760p' RFToolsBuilderPort261/src/main/java/mcjty/rftoolsbuilder/client/$f; done
